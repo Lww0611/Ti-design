@@ -2,8 +2,8 @@ from fastapi import APIRouter, HTTPException
 from schemas.request import PredictRequest, InverseRequest
 
 # --- 修改引用路径 ---
-from services.prediction_service import multi_model_predict
-from services.inverse_service import mock_inverse_design
+from services.prediction.service import predict_with_registry
+from services.inverse.service import mock_inverse_design
 from fastapi import Depends
 from sqlalchemy.orm import Session
 from db.session import get_db
@@ -19,7 +19,7 @@ def predict_performance(
     db: Session = Depends(get_db)
 ):
     try:
-        results = multi_model_predict(data)
+        results = predict_with_registry(data.model_dump())
 
         # 1. 保存 task
         task = PredictionTask(
