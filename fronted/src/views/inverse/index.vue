@@ -137,8 +137,8 @@
                     <el-table-column label="预测性能" width="140">
                       <template #default="scope">
                         <div class="perf-cell">
-                          <div>Rm: <b>{{ scope.row.predicted_rm }}</b></div>
-                          <div>A: <b>{{ scope.row.predicted_a }}</b> %</div>
+                          <div>抗拉强度: <b>{{ scope.row.predicted_strength }}</b></div>
+                          <div>延伸率: <b>{{ scope.row.predicted_elongation }}</b> %</div>
                         </div>
                       </template>
                     </el-table-column>
@@ -291,7 +291,7 @@ const initRadarChart = (top1) => {
       type: 'radar',
       data: [
         {
-          value: [top1.predicted_rm, top1.predicted_a, top1.score, 80, 85],
+          value: [top1.predicted_strength, top1.predicted_elongation, top1.score, 80, 85],
           name: 'Top 1 方案',
           areaStyle: {color: 'rgba(64, 158, 255, 0.2)'},
           itemStyle: {color: '#409EFF'}

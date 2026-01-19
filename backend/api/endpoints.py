@@ -1,52 +1,19 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from schemas.request import PredictRequest, InverseRequest
-
-# --- 修改引用路径 ---
 from services.prediction.service import predict_with_registry
-from services.inverse.service import mock_inverse_design
-from fastapi import Depends
-from sqlalchemy.orm import Session
-from db.session import get_db
-from db.db_models.prediction_task import PredictionTask
-from db.db_models.prediction_result import PredictionResult
-
+from services.inverse.service import inverse_with_registry
 
 router = APIRouter()
 
 @router.post("/predict")
-def predict_performance(
-    data: PredictRequest,
-    db: Session = Depends(get_db)
-):
+def predict_performance(data: PredictRequest):
     try:
-        results = predict_with_registry(data.model_dump())
-
-        # 1. 保存 task
-        task = PredictionTask(
-            mode=data.heatTreatmentMode,
-            input_json=data.model_dump()
-        )
-        db.add(task)
-        db.commit()
-        db.refresh(task)
-
-        # 2. 保存 result
-        for r in results:
-            res = PredictionResult(
-                task_id=task.id,
-                model_name=r["model"],
-                result_json=r
-            )
-            db.add(res)
-        db.commit()
-
-        # ✅ 正确返回
+        res = predict_with_registry(data.model_dump())
         return {
             "status": "success",
-            "task_id": task.id,
-            "data": results
+            "task_id": res["task_id"],
+            "data": res["results"]
         }
-
     except Exception as e:
         print("Predict error:", e)
         return {
@@ -55,24 +22,21 @@ def predict_performance(
             "data": []
         }
 
-
-
 @router.post("/inverse")
-async def inverse_design(data: InverseRequest):
-    """
-    逆向设计接口
-    """
+def inverse_design(data: InverseRequest):
     try:
-        results = mock_inverse_design(data)
+        res = inverse_with_registry(data.model_dump())
+
         return {
             "status": "success",
-            "data": results
+            "task_id": res["task_id"],
+            "data": res["results"]
         }
+
     except Exception as e:
-        print(f"Error in inverse: {e}")
+        print("Inverse error:", e)
         return {
             "status": "error",
             "message": str(e),
             "data": []
         }
-

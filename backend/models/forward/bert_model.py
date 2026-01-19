@@ -86,9 +86,6 @@ class BertRegressionModel(BaseModel):
         """
         features: builder.build_features() 输出
         """
-        print("🧠 BERT MODEL PREDICT CALLED")
-        print("🧪 FEATURES KEYS =", list(features.keys()))
-
         X = self._build_feature_vector(features)
 
         strength = float(self.strength_model.predict(X)[0])
@@ -96,8 +93,12 @@ class BertRegressionModel(BaseModel):
 
         return {
             "model": self.name,
-            "rm": round(strength, 2),
-            "rm_err": None,
-            "a": round(elongation, 2),
-            "a_err": None
+            "strength": round(strength, 2),
+            "elongation": round(elongation, 2),
+            "raw": {
+                "strength": round(strength, 2),
+                "strength_err": None,
+                "elongation": round(elongation, 2),
+                "elongation_err": None
+            }
         }

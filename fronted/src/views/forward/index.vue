@@ -213,16 +213,33 @@
                           <el-tag size="small" effect="plain">{{ scope.row.model }}</el-tag>
                         </template>
                       </el-table-column>
-                      <el-table-column label="Rm (MPa)" align="center">
+
+                      <!-- 抗拉强度 -->
+                      <el-table-column label="抗拉强度(MPa)" align="center">
                         <template #default="scope">
-                          <span class="value-text">{{ scope.row.rm }}</span>
+                          <span class="value-text">{{ scope.row.strength }}</span>
                         </template>
                       </el-table-column>
-                      <el-table-column label="A (%)" align="center">
+
+                      <!-- 延伸率 -->
+                      <el-table-column label="延伸率(%)" align="center">
                         <template #default="scope">
-                          <span class="value-text">{{ scope.row.a }}</span>
+                          <span class="value-text">{{ scope.row.elongation }}</span>
                         </template>
                       </el-table-column>
+
+<!--                      &lt;!&ndash; 可选：误差值，数据库暂不存 &ndash;&gt;-->
+<!--                      <el-table-column label="抗拉强度误差" align="center">-->
+<!--                        <template #default="scope">-->
+<!--                          <span class="value-text">{{ scope.row.raw?.strength_err ?? '-' }}</span>-->
+<!--                        </template>-->
+<!--                      </el-table-column>-->
+
+<!--                      <el-table-column label="延伸率误差" align="center">-->
+<!--                        <template #default="scope">-->
+<!--                          <span class="value-text">{{ scope.row.raw?.elongation_err ?? '-' }}</span>-->
+<!--                        </template>-->
+<!--                      </el-table-column>-->
                     </el-table>
                   </div>
 
@@ -305,6 +322,7 @@ const handlePredict = async () => {
   loading.value = true
   try {
     const res = await request.post('/predict', form)
+    console.log('res:', res)  // ✅ 这里打印后端返回的原始数据
 
     let finalData = []
     if (Array.isArray(res)) {
@@ -314,6 +332,7 @@ const handlePredict = async () => {
     } else if (res && res.data && Array.isArray(res.data.data)) {
       finalData = res.data.data
     }
+    console.log('finalData:', finalData) // ✅ 打印处理后的数组
 
     predictionResults.value = finalData
 
@@ -333,6 +352,7 @@ const handlePredict = async () => {
     loading.value = false
   }
 }
+
 
 const initChart = () => {
   if (chartRef.value) {
@@ -354,7 +374,9 @@ const updateChart = () => {
   if (!chartInstance) return
 
   const data = predictionResults.value || []
-  const seriesData = data.map(item => [item.a, item.rm])
+
+  // ✅ 修改点：使用 strength / elongation
+  const seriesData = data.map(item => [item.elongation, item.strength])
 
   chartInstance.setOption({
     grid: { top: 40, right: 30, bottom: 30, left: 50, containLabel: true },
@@ -366,20 +388,20 @@ const updateChart = () => {
       formatter: (params) => {
         if (params.seriesType === 'scatter') {
           const item = data[params.dataIndex]
-          return `<b>${item ? item.model : ''}</b><br/>Rm: ${params.data[1]} MPa<br/>A: ${params.data[0]} %`
+          return `<b>${item ? item.model : ''}</b><br/>Strength: ${item.strength} MPa<br/>Elongation: ${item.elongation} %`
         }
         return ''
       }
     },
     xAxis: {
-      name: '延伸率 A (%)',
+      name: '延伸率 (%)',
       nameLocation: 'middle',
       nameGap: 25,
       min: 0, max: 25,
       splitLine: { lineStyle: { type: 'dashed', color: '#eee' } }
     },
     yAxis: {
-      name: '抗拉强度 Rm (MPa)',
+      name: '抗拉强度 (MPa)',
       min: 400, max: 1500,
       splitLine: { lineStyle: { type: 'dashed', color: '#eee' } }
     },

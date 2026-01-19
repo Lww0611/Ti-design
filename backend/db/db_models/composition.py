@@ -7,7 +7,8 @@ class Composition(Base):
     __tablename__ = "composition"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    task_id: Mapped[int] = mapped_column(ForeignKey("prediction_task.id"))
+    # 修改这里，指向新的任务表
+    task_id: Mapped[int] = mapped_column(ForeignKey("task_table.id"))
 
     Al: Mapped[float] = mapped_column(Float)
     Sn: Mapped[float] = mapped_column(Float)
