@@ -1,6 +1,6 @@
 <template>
   <div class="page-container">
-    <!-- 顶部标题 (固定高度) -->
+    <!-- 顶部标题 -->
     <div class="page-header">
       <div class="header-content">
         <h1 class="page-title">实验历史记录 <span class="en-title">Experiment History</span></h1>
@@ -8,7 +8,7 @@
       </div>
     </div>
 
-    <!-- 主体内容 (自适应剩余高度) -->
+    <!-- 主体内容 -->
     <div class="main-content">
       <div class="modern-card">
         <div class="card-header-bar">
@@ -17,7 +17,7 @@
             <span class="header-subtitle">Database</span>
           </div>
 
-          <!-- 顶部筛选工具栏 -->
+          <!-- 筛选工具栏 -->
           <div class="filter-bar">
             <el-input
                 v-model="searchKeyword"
@@ -35,71 +35,89 @@
                 size="small"
                 style="width: 240px; margin-right: 10px;"
             />
-            <el-button type="primary" size="small" color="#667eea" icon="Search">查询</el-button>
+            <el-button type="primary" size="small" color="#667eea" icon="Search" @click="fetchTasks(1)">查询</el-button>
             <el-button size="small" icon="Download">导出</el-button>
           </div>
         </div>
 
-        <!-- 卡片内容区：Flex 纵向布局 -->
+        <!-- 卡片内容 -->
         <div class="card-body no-padding table-layout">
-          <!-- 表格区域：Flex 1 撑满剩余空间 -->
           <div class="table-wrapper">
-            <!-- height="100%" 是实现表头固定、内部滚动的关键 -->
             <el-table
-                :data="tableData"
+                :data="tasks"
                 style="width: 100%; height: 100%;"
-                :header-cell-style="{background:'#f8fafc', color:'#64748b', fontWeight:'600'}"
                 stripe
             >
-              <el-table-column prop="id" label="编号" width="80" align="center" />
+              <el-table-column label="编号" width="80" align="center">
+                <template #default="scope">{{ (currentPage - 1) * pageSize + scope.$index + 1 }}</template>
+              </el-table-column>
 
-              <el-table-column label="合金成分" min-width="180">
+              <!-- 任务标题 + 类型标签 -->
+              <el-table-column label="任务标题" min-width="200">
                 <template #default="scope">
-                  <div class="composition-tag">
-                    <span class="main-el">Ti</span>
-                    <span class="sub-el">{{ scope.row.composition }}</span>
-                  </div>
+                  {{ scope.row.title }}
+                  <el-tag v-if="scope.row.task_type === 'forward'" type="success" size="small" style="margin-left: 6px;">性能预测</el-tag>
+                  <el-tag v-else-if="scope.row.task_type === 'inverse'" type="warning" size="small" style="margin-left: 6px;">逆向设计</el-tag>
+                  <el-tag v-else type="info" size="small" style="margin-left: 6px;">其他</el-tag>
                 </template>
               </el-table-column>
 
-              <el-table-column label="工艺类型" width="120">
+              <el-table-column prop="status" label="状态" width="100" />
+              <el-table-column prop="created_at" label="创建时间" width="180" />
+
+              <el-table-column label="操作" width="120">
                 <template #default="scope">
-                  <el-tag :type="getProcessTagType(scope.row.process)" effect="light" size="small">
-                    {{ scope.row.process }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-
-              <el-table-column label="预测结果" width="200">
-                <template #default="scope">
-                  <div class="result-mini-grid">
-                    <span>Rm: <b>{{ scope.row.rm }}</b></span>
-                    <span>A: <b>{{ scope.row.a }}%</b></span>
-                  </div>
-                </template>
-              </el-table-column>
-
-              <!-- 模型列：加宽并支持 tooltip -->
-              <el-table-column prop="model" label="使用模型" width="180" show-overflow-tooltip>
-                <template #default="scope">
-                  <span class="model-badge">{{ scope.row.model }}</span>
-                </template>
-              </el-table-column>
-
-              <el-table-column prop="date" label="时间" width="160" sortable />
-
-              <el-table-column label="操作" width="150" align="center" fixed="right">
-                <template #default>
-                  <el-button link type="primary" size="small">详情</el-button>
-                  <el-button link type="danger" size="small">删除</el-button>
+                  <el-button link type="primary" size="small" @click="viewDetail(scope.row)">详情</el-button>
                 </template>
               </el-table-column>
             </el-table>
+
+            <!-- 任务详情弹窗 -->
+            <el-dialog
+                v-model="detailVisible"
+                :title="selectedTask ? (selectedTask.task_type === 'forward' ? '性能预测结果' : '逆向设计结果') : '任务详情'"
+                width="800px"
+            >
+              <div v-if="selectedTask">
+                <p><b>任务类型：</b>{{ selectedTask.task_type === 'forward' ? '性能预测' : selectedTask.task_type === 'inverse' ? '逆向设计' : '其他' }}</p>
+                <p><b>创建时间：</b> {{ selectedTask.created_at }}</p>
+
+                <!-- 性能预测结果 -->
+                <div v-if="selectedTask.task_type === 'forward'">
+                  <el-table :data="detailResults" stripe style="margin-top: 10px;">
+                    <el-table-column prop="model_name" label="模型" />
+                    <el-table-column prop="strength" label="强度" />
+                    <el-table-column prop="elongation" label="延伸率" />
+                  </el-table>
+                </div>
+
+                <!-- 逆向设计结果 -->
+                <div v-else-if="selectedTask.task_type === 'inverse'">
+                  <el-table :data="detailResults" stripe style="margin-top: 10px;">
+                    <el-table-column prop="rank" label="排名" width="80"/>
+                    <el-table-column prop="predicted_strength" label="预测强度"/>
+                    <el-table-column prop="predicted_elongation" label="预测延伸率"/>
+                    <el-table-column prop="score" label="评分"/>
+                  </el-table>
+                </div>
+
+                <div v-else>
+                  暂无详细结果
+                </div>
+              </div>
+            </el-dialog>
           </div>
 
-          <!-- 分页区域：固定在底部 -->
+          <!-- 分页 -->
           <div class="pagination-wrapper">
-            <el-pagination background layout="prev, pager, next" :total="100" />
+            <el-pagination
+                background
+                layout="prev, pager, next"
+                :total="totalTasks"
+                :current-page="currentPage"
+                :page-size="pageSize"
+                @current-change="fetchTasks"
+            />
           </div>
         </div>
       </div>
@@ -108,29 +126,65 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { Search, Download } from '@element-plus/icons-vue'
+import { ref, onMounted } from 'vue'
+import axios from 'axios'
+import { ElMessage } from 'element-plus'
 
+const API_BASE = 'http://127.0.0.1:8000/api'
+
+const tasks = ref([])
+const totalTasks = ref(0)
+const currentPage = ref(1)
+const pageSize = ref(30)
+const detailVisible = ref(false)
+const selectedTask = ref(null)
+const detailResults = ref([])
 const searchKeyword = ref('')
 const dateRange = ref([])
 
-const tableData = ref([
-  { id: '1001', composition: '-6Al-4V', process: 'Forging', rm: 950, a: 14.5, model: 'XGBoost-Optimized-V2', date: '2023-10-20 14:30' },
-  { id: '1002', composition: '-5Al-2.5Sn', process: 'Rolling', rm: 820, a: 18.2, model: 'RandomForest-Ensemble', date: '2023-10-19 09:15' },
-  { id: '1003', composition: '-10V-2Fe-3Al', process: 'HeatTreat', rm: 1150, a: 8.5, model: 'SVM-Kernel-RBF', date: '2023-10-18 16:45' },
-  { id: '1004', composition: '-6Al-4V', process: 'Forging', rm: 960, a: 14.0, model: 'XGBoost', date: '2023-10-18 11:20' },
-  { id: '1005', composition: '-3Al-2.5V', process: 'Casting', rm: 700, a: 22.0, model: 'BERT-Regression-Large', date: '2023-10-17 10:00' },
-  { id: '1006', composition: '-6Al-4V', process: 'Forging', rm: 955, a: 14.2, model: 'XGBoost', date: '2023-10-16 09:30' },
-  { id: '1007', composition: '-5Al-2.5Sn', process: 'Rolling', rm: 810, a: 18.5, model: 'RandomForest', date: '2023-10-15 14:15' },
-  { id: '1008', composition: '-10V-2Fe-3Al', process: 'HeatTreat', rm: 1160, a: 8.2, model: 'SVM', date: '2023-10-14 11:45' },
-  { id: '1009', composition: '-6Al-4V', process: 'Forging', rm: 945, a: 14.8, model: 'XGBoost', date: '2023-10-13 16:20' },
-  { id: '1010', composition: '-3Al-2.5V', process: 'Casting', rm: 710, a: 21.5, model: 'BERT-Reg', date: '2023-10-12 10:00' },
-])
-
-const getProcessTagType = (process) => {
-  const map = { 'Forging': 'primary', 'Rolling': 'success', 'HeatTreat': 'warning', 'Casting': 'info' }
-  return map[process] || 'info'
+// 获取任务列表（分页）
+const fetchTasks = async (page = 1) => {
+  currentPage.value = page
+  try {
+    const res = await axios.get(`${API_BASE}/tasks`, {
+      params: {
+        page: page,
+        page_size: pageSize.value,
+        keyword: searchKeyword.value,
+        start_date: dateRange.value[0] || '',
+        end_date: dateRange.value[1] || ''
+      }
+    })
+    tasks.value = res.data.items
+    totalTasks.value = res.data.total
+  } catch {
+    ElMessage.error('获取任务列表失败')
+  }
 }
+
+// 查看详情
+const viewDetail = async (task) => {
+  selectedTask.value = task
+  detailVisible.value = true
+
+  try {
+    if (task.task_type === 'forward') {
+      const res = await axios.get(`${API_BASE}/tasks/${task.id}/results`)
+      detailResults.value = res.data
+    } else if (task.task_type === 'inverse') {
+      const res = await axios.get(`${API_BASE}/tasks/${task.id}/inverse-results`)
+      detailResults.value = res.data
+    } else {
+      detailResults.value = []
+    }
+  } catch {
+    ElMessage.error('获取详情失败')
+  }
+}
+
+onMounted(() => {
+  fetchTasks(1)
+})
 </script>
 
 <style scoped>

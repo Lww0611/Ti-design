@@ -22,9 +22,13 @@ app.add_middleware(
 app.include_router(api_router, prefix="/api")
 
 # ✅ 启动时自动建表
+from services.dataset_init import init_system_datasets
+
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
+    init_system_datasets()   # ✅ 自动导入系统数据集
+
 
 if __name__ == "__main__":
     import uvicorn

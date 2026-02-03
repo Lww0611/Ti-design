@@ -22,6 +22,12 @@ const routes = [
                 meta: { title: '工作台首页' }
             },
             {
+                path: '/datasets',
+                name: 'datasets',
+                component: () => import('@/views/datasets/index.vue'),
+                meta: { title: '数据集管理' }
+            },
+            {
                 path: 'forward',
                 name: 'Forward',
                 component: () => import('../views/forward/index.vue'),

@@ -5,7 +5,7 @@ import pandas as pd
 from fastapi import UploadFile, HTTPException
 from sqlalchemy.orm import Session
 
-from db.dataset_models import Dataset
+from db.db_models.dataset_table import Dataset
 
 BASE_DATASET_DIR = "backend/data/datasets"
 
