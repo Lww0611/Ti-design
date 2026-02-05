@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.endpoints import router as api_router
+from api.endpoints import auth_router as auth_router
 
 # ✅ 新增：数据库相关
 from db.session import engine
@@ -20,6 +21,7 @@ app.add_middleware(
 
 # 路由
 app.include_router(api_router, prefix="/api")
+app.include_router(auth_router, prefix="/api")
 
 # ✅ 启动时自动建表
 from services.dataset_init import init_system_datasets

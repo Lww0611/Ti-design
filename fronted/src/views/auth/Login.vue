@@ -56,7 +56,7 @@
               <el-form-item label="设置密码">
                 <el-input v-model="registerForm.password" type="password" />
               </el-form-item>
-              <el-button class="submit-btn btn-register">
+              <el-button class="submit-btn btn-register" @click="handleRegister">
                 提交注册申请
               </el-button>
             </el-form>
@@ -77,11 +77,37 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import axios from 'axios'
 
 const router = useRouter()
 const activeTab = ref('login')
 const rememberMe = ref(true)
 
+/* =========================
+   ✅ 创建 axios 实例
+========================= */
+const request = axios.create({
+  baseURL: 'http://127.0.0.1:8000',
+  timeout: 10000
+})
+
+/* =========================
+   ✅ 请求拦截器（自动带 token）
+========================= */
+request.interceptors.request.use(
+    config => {
+      const token = localStorage.getItem('token')
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`
+      }
+      return config
+    },
+    error => Promise.reject(error)
+)
+
+/* =========================
+   表单数据
+========================= */
 const loginForm = reactive({
   username: '',
   password: ''
@@ -93,12 +119,50 @@ const registerForm = reactive({
   password: ''
 })
 
-const handleLogin = () => {
-  if (loginForm.username && loginForm.password) {
-    ElMessage.success('登录成功，欢迎进入系统')
+/* =========================
+   登录
+========================= */
+const handleLogin = async () => {
+  if (!loginForm.username || !loginForm.password) {
+    return ElMessage.warning('请输入账号和密码')
+  }
+
+  try {
+    const res = await request.post('/api/auth/login', {
+      username: loginForm.username,
+      password: loginForm.password
+    })
+
+    const { access_token, username } = res.data
+
+    localStorage.setItem('token', access_token)
+
+    ElMessage.success(`登录成功，欢迎 ${username}`)
     router.push('/dashboard')
-  } else {
-    ElMessage.warning('请输入账号和密码')
+  } catch (err) {
+    ElMessage.error(err.response?.data?.detail || '登录失败')
+  }
+}
+
+/* =========================
+   注册
+========================= */
+const handleRegister = async () => {
+  if (!registerForm.name || !registerForm.password) {
+    return ElMessage.warning('请填写完整注册信息')
+  }
+
+  try {
+    await request.post('/api/auth/register', {
+      username: registerForm.name,
+      password: registerForm.password,
+      lab: registerForm.lab
+    })
+
+    ElMessage.success('注册成功，请登录')
+    activeTab.value = 'login'
+  } catch (err) {
+    ElMessage.error(err.response?.data?.detail || '注册失败')
   }
 }
 </script>

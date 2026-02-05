@@ -7,9 +7,13 @@ from services.inverse.service import inverse_with_registry
 from db.db_models.task_table import TaskTable
 from db.db_models.prediction_result import PredictionResult
 from db.db_models.inverse_result import InverseResult
+from schemas.user import RegisterRequest, LoginRequest
+
 
 from typing import Optional
 
+from passlib.context import CryptContext
+from db.db_models.user_table import User
 
 from db.session import get_db
 from services.dataset_service import (
@@ -20,7 +24,73 @@ from services.dataset_service import (
     delete_dataset
 )
 
+# 业务接口
 router = APIRouter()
+
+# 认证接口
+auth_router = APIRouter(prefix="/auth", tags=["Auth"])
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# 密码哈希
+def hash_password(password: str):
+    return pwd_context.hash(password)
+
+def verify_password(password: str, hashed: str):
+    return pwd_context.verify(password, hashed)
+
+# 注册
+@auth_router.post("/register")
+def register(data: RegisterRequest, db: Session = Depends(get_db)):
+    if db.query(User).filter(User.username == data.username).first():
+        raise HTTPException(status_code=400, detail="用户名已存在")
+
+    user = User(
+        username=data.username,
+        password_hash=hash_password(data.password),
+        lab=data.lab
+    )
+
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "id": user.id,
+        "username": user.username,
+        "lab": user.lab
+    }
+
+
+# 登录
+@auth_router.post("/login")
+def login(data: LoginRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == data.username).first()
+
+    if not user or not verify_password(data.password, user.password_hash):
+        raise HTTPException(status_code=400, detail="用户名或密码错误")
+
+    token = f"{user.id}-{user.username}"
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "username": user.username
+    }
+
+# 获取当前用户信息（需要 token 验证，可扩展 JWT）
+@auth_router.get("/me")
+def get_me(token: str, db: Session = Depends(get_db)):
+    # 简单 demo: token 格式 "id-username"
+    try:
+        user_id, username = token.split("-", 1)
+    except:
+        raise HTTPException(status_code=401, detail="无效 token")
+    user = db.query(User).filter(User.id == int(user_id)).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    return {"id": user.id, "username": user.username, "lab": user.lab}
+
 
 # ===============================
 # Prediction APIs
