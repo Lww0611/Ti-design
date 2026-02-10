@@ -32,6 +32,11 @@
         <template #title>数据集管理</template>
       </el-menu-item>
 
+      <el-menu-item index="/management">
+        <el-icon><Compass /></el-icon>
+        <template #title>模型管理</template>
+      </el-menu-item>
+
       <el-menu-item index="/forward">
         <el-icon><Compass /></el-icon>
         <template #title>性能正向预测</template>

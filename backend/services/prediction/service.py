@@ -72,8 +72,9 @@ def predict_with_registry(payload: dict):
                 "model": name,
                 "strength": pred_raw.get("strength"),
                 "elongation": pred_raw.get("elongation"),
-                "raw": pred_raw.get("raw")  # 前端不显示 raw
+                "raw": pred_raw.get("raw")
             })
+
 
 
         # 4️⃣ 更新任务状态为 success

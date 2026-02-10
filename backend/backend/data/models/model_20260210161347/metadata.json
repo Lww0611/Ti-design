@@ -1,0 +1,10 @@
+{
+  "model_name": "xgb",
+  "features": [
+    "Ti (wt%)",
+    "Mo (wt%)",
+    "Al (wt%)"
+  ],
+  "target": "Strength (MPa)",
+  "created_at": "20260210161347"
+}

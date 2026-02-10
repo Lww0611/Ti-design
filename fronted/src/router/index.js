@@ -28,6 +28,12 @@ const routes = [
                 meta: { title: '数据集管理' }
             },
             {
+                path: '/management',
+                name: 'management',
+                component: () => import('@/views/management/index.vue'),
+                meta: { title: '模型管理' }
+            },
+            {
                 path: 'forward',
                 name: 'Forward',
                 component: () => import('../views/forward/index.vue'),
