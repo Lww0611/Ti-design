@@ -146,7 +146,7 @@ const dateRange = ref([])
 const fetchTasks = async (page = 1) => {
   currentPage.value = page
   try {
-    const res = await axios.get(`${API_BASE}/tasks`, {
+    const res = await axios.get(`${API_BASE}/v1/tasks`, {
       params: {
         page: page,
         page_size: pageSize.value,
@@ -169,10 +169,10 @@ const viewDetail = async (task) => {
 
   try {
     if (task.task_type === 'forward') {
-      const res = await axios.get(`${API_BASE}/tasks/${task.id}/results`)
+      const res = await axios.get(`${API_BASE}/v1/tasks/${task.id}/results`)
       detailResults.value = res.data
     } else if (task.task_type === 'inverse') {
-      const res = await axios.get(`${API_BASE}/tasks/${task.id}/inverse-results`)
+      const res = await axios.get(`${API_BASE}/v1/tasks/${task.id}/inverse-results`)
       detailResults.value = res.data
     } else {
       detailResults.value = []

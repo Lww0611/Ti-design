@@ -1,5 +1,4 @@
 <template>
-
   <div class="page-container">
     <!-- 顶部标题 (固定高度) -->
     <div class="page-header">
@@ -321,7 +320,7 @@ const handlePredict = async () => {
 
   loading.value = true
   try {
-    const res = await request.post('/predict', form)
+    const res = await request.post('/v1/predict', form)
     console.log('res:', res)  // ✅ 这里打印后端返回的原始数据
 
     let finalData = []
@@ -352,7 +351,6 @@ const handlePredict = async () => {
     loading.value = false
   }
 }
-
 
 const initChart = () => {
   if (chartRef.value) {

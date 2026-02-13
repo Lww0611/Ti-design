@@ -1,12 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.endpoints import router as api_router
-from api.endpoints import auth_router as auth_router
-from api.model_registry import router as model_registry_router
+# ✅ 修改：改为引用重构后的总路由聚合器
+from api.v1.router import api_router
 
-
-# ✅ 新增：数据库相关
+# ✅ 数据库相关 (保持逻辑不变，路径改为绝对引用)
 from db.session import engine
 from db.base import Base
 import db.db_models  # 必须导入，注册所有 ORM 表
@@ -21,13 +19,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 路由
-app.include_router(api_router, prefix="/api")
-app.include_router(auth_router, prefix="/api")
-# 包含模型管理模块
-app.include_router(model_registry_router, prefix="/api")
+# ✅ 路由挂载修改
+# api_router 内部已经包含了 auth, predictions, datasets, tasks
+app.include_router(api_router, prefix="/api/v1")
 
-# ✅ 启动时自动建表
+# ✅ 启动逻辑保持不变
 from services.dataset_init import init_system_datasets
 
 @app.on_event("startup")
@@ -38,4 +34,4 @@ def on_startup():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

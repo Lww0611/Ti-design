@@ -191,7 +191,7 @@ const filteredUserDatasets = computed(() => {
 const fetchDatasets = async () => {
   loading.value = true
   try {
-    const res = await axios.get(`${API_BASE}/datasets`)
+    const res = await axios.get(`${API_BASE}/v1/datasets`)
     datasets.value = res.data.data || res.data
   } catch (err) {
     ElMessage.error('加载数据集失败')
@@ -207,7 +207,7 @@ const handleUpload = async (file) => {
 
   try {
     loading.value = true
-    await axios.post(`${API_BASE}/datasets/upload`, formData)
+    await axios.post(`${API_BASE}/v1/datasets/upload`, formData)
     ElMessage.success('上传成功')
     fetchDatasets()
   } catch (err) {
@@ -223,7 +223,7 @@ const datasetDetail = ref({})
 
 const viewDetail = async (row) => {
   try {
-    const res = await axios.get(`${API_BASE}/datasets/${row.id}`)
+    const res = await axios.get(`${API_BASE}/v1/datasets/${row.id}`)
     datasetDetail.value = res.data.data || res.data
     detailVisible.value = true
   } catch {
@@ -240,7 +240,7 @@ const deleteDataset = async (row) => {
         { type: 'warning' }
     )
 
-    await axios.delete(`${API_BASE}/datasets/${row.id}`)
+    await axios.delete(`${API_BASE}/v1/datasets/${row.id}`)
     ElMessage.success('删除成功')
     fetchDatasets()
   } catch {

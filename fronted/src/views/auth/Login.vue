@@ -128,7 +128,7 @@ const handleLogin = async () => {
   }
 
   try {
-    const res = await request.post('/api/auth/login', {
+    const res = await request.post('/api/v1/auth/login', {
       username: loginForm.username,
       password: loginForm.password
     })
@@ -153,7 +153,7 @@ const handleRegister = async () => {
   }
 
   try {
-    await request.post('/api/auth/register', {
+    await request.post('/api/v1/auth/register', {
       username: registerForm.name,
       password: registerForm.password,
       lab: registerForm.lab
