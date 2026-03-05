@@ -5,6 +5,7 @@ from api.v1.predictions import router as predictions_router
 from api.v1.datasets import router as datasets_router
 from api.v1.tasks import router as tasks_router
 from api.v1.model_manager import model_manager_router as model_router
+from api.v1.cases import router as case_router
 
 api_router = APIRouter()
 
@@ -13,3 +14,4 @@ api_router.include_router(predictions_router)
 api_router.include_router(datasets_router)
 api_router.include_router(tasks_router)
 api_router.include_router(model_router)
+api_router.include_router(case_router)

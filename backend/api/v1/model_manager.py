@@ -1,6 +1,7 @@
 import io
 import pandas as pd
 import traceback
+import joblib # 确保顶部导出了 joblib
 from datetime import datetime
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from sqlalchemy.orm import Session
@@ -14,6 +15,7 @@ from api.v1.auth import get_current_user
 from utils.model_loader import try_load_model
 # 请确保该文件路径正确
 from services.model_registry.validator import validate_metadata_against_dataset
+from services.model_registry.evaluator import evaluate_model_on_data
 
 model_manager_router = APIRouter(prefix="/models", tags=["Model Registry"])
 
@@ -91,15 +93,28 @@ async def register_model_api(
         raise HTTPException(status_code=500, detail=f"注册失败: {str(e)}")
 
 # --- 3. [重构] 执行契约：模型评估 (精准切片) ---
+# --- 3. [重构] 执行契约：模型评估 (精准切片) ---
 @model_manager_router.post("/{model_id}/evaluate")
 async def evaluate_model(model_id: int, db: Session = Depends(get_db), user = Depends(get_current_user)):
-    # ... (查询模型记录和加载模型对象的代码)
+    # 🌟 【修复点 1】：先从数据库里把模型记录“抓”出来
+    model_rec = db.query(Model).filter(Model.id == model_id, Model.user_id == user.id).first()
+
+    if not model_rec:
+        raise HTTPException(status_code=404, detail="未找到指定的模型记录，或您无权访问")
 
     try:
-        # 1. 加载数据集
+        # 🌟 【修复点 2】：将数据库里的二进制内容转换成可运行的模型对象
+        # 此时 model_rec 已经存在，可以安全地访问 model_rec.content
+        model_obj = joblib.load(io.BytesIO(model_rec.content))
+
+        # 2. 加载系统数据集
+        if not config.SYSTEM_DATASET_PATH.exists():
+            raise HTTPException(status_code=404, detail="系统评估数据集文件缺失")
+
         df = pd.read_csv(config.SYSTEM_DATASET_PATH)
 
-        # 2. 调用外部 evaluator 函数（不再在 API 里手写计算过程）
+        # 3. 执行评估
+        # 这里的 evaluate_model_on_data 是你从 services 导入的函数
         r2 = evaluate_model_on_data(
             model_obj=model_obj,
             df=df,
@@ -107,13 +122,14 @@ async def evaluate_model(model_id: int, db: Session = Depends(get_db), user = De
             target_col=model_rec.target
         )
 
-        # 3. 更新数据库记录
+        # 4. 更新数据库状态
         model_rec.metrics = {"r2_score": r2}
         model_rec.status = "evaluated"
         model_rec.evaluated_at = datetime.utcnow()
         db.commit()
 
         return {"r2_score": r2, "status": "success"}
+
     except Exception as e:
         db.rollback()
         traceback.print_exc()

@@ -25,7 +25,8 @@ def inverse_with_registry(payload: dict):
             task_type="inverse",
             status="running",
             title="Inverse Design",
-            input_json=payload
+            input_json=payload,
+            case_id=case_id
         )
         db.add(task)
         db.commit()

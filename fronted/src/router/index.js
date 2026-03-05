@@ -3,11 +3,20 @@ import Layout from '../layout/index.vue'
 
 const routes = [
     // 登录页独立，不使用 Layout
+    // 登录页
     {
         path: '/login',
         name: 'Login',
         component: () => import('../views/auth/Login.vue'),
         meta: { title: '系统登录' }
+    },
+
+    // 首页（独立页面，不使用 Layout）
+    {
+        path: '/dashboard',
+        name: 'Dashboard',
+        component: () => import('../views/dashboard/index.vue'),
+        meta: { title: '工作台首页' }
     },
     // 后台管理页使用 Layout
     {
@@ -16,10 +25,10 @@ const routes = [
         redirect: '/login', // 初始重定向到登录页
         children: [
             {
-                path: 'dashboard',
-                name: 'Dashboard',
-                component: () => import('../views/dashboard/index.vue'),
-                meta: { title: '工作台首页' }
+                path: '/cases',
+                name: 'cases',
+                component: () => import('@/views/case/case.vue'),
+                meta: { title: '工作流管理' }
             },
             {
                 path: '/datasets',

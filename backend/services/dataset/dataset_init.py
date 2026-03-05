@@ -1,6 +1,6 @@
 import os
 from core import config # ✅ 修正导入
-from services.dataset_service import save_uploaded_dataset
+from services.dataset.dataset_service import save_uploaded_dataset
 from db.session import SessionLocal
 from db.db_models.dataset_table import Dataset
 

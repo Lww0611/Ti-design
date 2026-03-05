@@ -8,6 +8,8 @@ from api.v1.router import api_router
 from db.session import engine
 from db.base import Base
 import db.db_models  # 必须导入，注册所有 ORM 表
+# main.py
+from db.db_models.case_table import Case
 
 app = FastAPI(title="Titanium Alloy Research API")
 
@@ -24,7 +26,7 @@ app.add_middleware(
 app.include_router(api_router, prefix="/api/v1")
 
 # ✅ 启动逻辑保持不变
-from services.dataset_init import init_system_datasets
+from services.dataset.dataset_init import init_system_datasets
 
 @app.on_event("startup")
 def on_startup():

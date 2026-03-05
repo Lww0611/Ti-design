@@ -24,7 +24,8 @@ def predict_with_registry(payload: dict):
             task_type="forward",
             status="running",
             title="Forward Prediction",
-            input_json=payload
+            input_json=payload,
+            case_id=case_id
         )
         db.add(task)
         db.commit()
