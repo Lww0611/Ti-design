@@ -1,3 +1,28 @@
+# HTTP API
 fastapi
-uvicorn
+uvicorn[standard]
+python-multipart
+
+# Schemas (FastAPI 已依赖 pydantic，单独列出便于查看与锁定版本)
 pydantic
+
+# Database — session.py 使用 mysql+pymysql
+sqlalchemy>=2.0
+pymysql
+
+# Data & ML
+numpy
+pandas
+scikit-learn
+joblib
+xgboost
+
+# Auth — passlib CryptContext(schemes=["bcrypt"])
+passlib[bcrypt]
+
+# BERT 混合模型 — pickle 依赖 transformers 内部类名，须与保存 encoder 的环境一致
+# 训练机 (Matflow-AD) 已确认: transformers 4.45.2, torch 2.5.1
+# 请在本机执行 pip show sentence-transformers，将下一行改为相同 Version（或不低于训练机）
+torch==2.5.1
+transformers==4.45.2
+sentence-transformers==5.2.0

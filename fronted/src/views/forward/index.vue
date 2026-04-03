@@ -60,98 +60,16 @@
                         工艺参数配置
                       </div>
 
-                      <div class="mode-switch-bar">
-                        <el-button
-                            class="mode-btn"
-                            :class="{ active: form.heatTreatmentMode === 'structured' }"
-                            size="small"
-                            @click="form.heatTreatmentMode = 'structured'"
-                        >
-                          数值设定
-                        </el-button>
-
-                        <el-button
-                            class="mode-btn"
-                            :class="{ active: form.heatTreatmentMode === 'text' }"
-                            size="small"
-                            @click="form.heatTreatmentMode = 'text'"
-                        >
-                          文本描述
-                        </el-button>
-                      </div>
-
-                      <transition name="fade-slide" mode="out-in">
-                        <div
-                            v-if="form.heatTreatmentMode === 'structured'"
-                            key="structured"
-                            class="process-mode-content"
-                        >
-                        <!-- 热加工 -->
-                          <div class="sub-panel">
-                            <div class="panel-header">
-                              <span>热加工</span>
-                              <el-switch v-model="form.hotWorking.enabled" size="small" active-color="#764ba2" />
-                            </div>
-                            <div v-if="form.hotWorking.enabled" class="panel-content">
-                              <el-form-item label="加工类型" class="compact-form-item">
-                                <el-select v-model="form.hotWorking.type" size="small" style="width: 100%">
-                                  <el-option label="Forging (锻造)" value="Forging" />
-                                  <el-option label="Hot rolling (热轧)" value="Hot rolling" />
-                                  <el-option label="Deformation (变形)" value="Deformation" />
-                                </el-select>
-                              </el-form-item>
-                              <el-form-item label="温度 (°C)" class="compact-form-item">
-                                <el-input-number v-model="form.hotWorking.temperature" size="small" :min="20" :max="1300" style="width: 100%" :controls="false" />
-                              </el-form-item>
-                              <el-form-item label="变形量 (%)" class="compact-form-item">
-                                <el-input-number v-model="form.hotWorking.deformation" size="small" :min="0" :max="100" style="width: 100%" :controls="false" />
-                              </el-form-item>
-                            </div>
-                          </div>
-
-                          <!-- 热处理 -->
-                          <div class="sub-panel">
-                            <div class="panel-header">
-                              <span>热处理</span>
-                              <el-switch v-model="form.heatTreatment.enabled" size="small" active-color="#764ba2" />
-                            </div>
-                            <div v-if="form.heatTreatment.enabled" class="panel-content">
-                              <div v-for="(stage, index) in form.heatTreatment.stages" :key="index" class="stage-item-vertical">
-                                <div class="stage-header-row">
-                                  <span class="stage-badge">{{ index + 1 }}</span>
-                                  <el-select v-model="stage.type" size="small" style="width: 80px" placeholder="类型">
-                                    <el-option label="Sol" value="Solution" />
-                                    <el-option label="Age" value="Aging" />
-                                    <el-option label="Ann" value="Annealing" />
-                                  </el-select>
-                                  <el-button type="danger" link icon="Delete" size="small" @click="removeStage(index)" v-if="form.heatTreatment.stages.length > 1" style="margin-left: auto"></el-button>
-                                </div>
-                                <div class="stage-inputs-row">
-                                  <el-input-number v-model="stage.temperature" size="small" :controls="false" placeholder="°C" style="flex: 1" />
-                                  <span class="unit">°C</span>
-                                  <el-input-number v-model="stage.duration" size="small" :controls="false" placeholder="h" style="flex: 1" />
-                                  <span class="unit">h</span>
-                                  <el-select v-model="stage.coolingMode" size="small" style="width: 60px" placeholder="冷却">
-                                    <el-option label="WQ" value="WQ" /><el-option label="AC" value="AC" />
-                                  </el-select>
-                                </div>
-                              </div>
-                              <el-button class="add-btn" type="primary" link icon="Plus" @click="addStage">添加阶段</el-button>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div v-else key="text" class="process-mode-content text-mode-panel">
+                      <div class="process-mode-content text-mode-panel">
                         <el-input
-                              v-model="form.heatTreatmentText"
-                              type="textarea"
-                              :rows="10"
-                              resize="none"
-                              placeholder="请输入工艺描述..."
-                              class="custom-textarea"
-                          />
-                        </div>
-                      </transition>
+                          v-model="form.heatTreatmentText"
+                          type="textarea"
+                          :rows="10"
+                          resize="none"
+                          placeholder="请输入热处理参数文本，例如：solution 950C 1h WQ; aging 550C 6h AC"
+                          class="custom-textarea"
+                        />
+                      </div>
                     </div>
                   </el-col>
 
@@ -165,8 +83,8 @@
 
                       <div class="model-select-container">
                         <el-checkbox-group v-model="form.selectedModels" class="vertical-checkbox-group">
-                          <el-checkbox v-for="model in currentModelOptions" :key="model" :label="model" border size="default" class="model-checkbox-block">
-                            {{ model }}
+                          <el-checkbox label="BERT-XGB-v2" border size="default" class="model-checkbox-block">
+                            BERT-XGB-v2
                           </el-checkbox>
                         </el-checkbox-group>
                       </div>
@@ -265,10 +183,10 @@
 </template>
 
 <script setup>
-import { reactive, ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
+import { reactive, ref, onMounted, onUnmounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
-import { Operation, Tools, Cpu, DataAnalysis, Plus, Delete } from '@element-plus/icons-vue'
+import { Operation, Tools, Cpu, DataAnalysis } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 
 const loading = ref(false)
@@ -283,34 +201,16 @@ const elementConfig = {
   Si: {p:2, s:0.05, max:1}, O: {p:3, s:0.01, max:0.5}, C: {p:3, s:0.01, max:0.5}, N: {p:3, s:0.01, max:0.5}
 }
 
-const structuredModels = ['XGBoost', 'RandomForest', 'SVM']
-const textModels = ['BERT-Regression', 'LLM-Parser', 'TextCNN']
-
 const form = reactive({
   elements: { Al:6.0, V:4.0, Sn:0, Zr:0, Mo:0, Cr:0, Nb:0, Ta:0, Fe:0.1, Si:0, O:0.15, C:0.01, N:0.01 },
   hotWorking: { enabled: false, type: 'Forging', temperature: 950, deformation: 50, passes: 1 },
-  heatTreatmentMode: 'structured',
-  heatTreatment: { enabled: false, stages: [{ type: 'Solution', temperature: 900, duration: 1.0, coolingMode: 'WQ' }] },
+  heatTreatmentMode: 'text',
+  heatTreatment: { enabled: false, stages: [] },
   heatTreatmentText: '',
-  selectedModels: ['XGBoost']
-})
-
-const currentModelOptions = computed(() => {
-  return form.heatTreatmentMode === 'structured' ? structuredModels : textModels
-})
-
-watch(() => form.heatTreatmentMode, (newMode) => {
-  if (newMode === 'structured') {
-    form.selectedModels = ['XGBoost']
-  } else {
-    form.selectedModels = ['BERT-Regression']
-  }
+  selectedModels: ['BERT-XGB-v2']
 })
 
 const predictionResults = ref([])
-
-const addStage = () => form.heatTreatment.stages.push({ type: 'Aging', temperature: 550, duration: 4.0, coolingMode: 'AC' })
-const removeStage = (index) => form.heatTreatment.stages.splice(index, 1)
 
 const handlePredict = async () => {
   if (form.selectedModels.length === 0) {
@@ -320,7 +220,7 @@ const handlePredict = async () => {
 
   loading.value = true
   try {
-    const res = await request.post('/v1/predict', form)
+    const res = await request.post('/predict', form)
     console.log('res:', res)  // ✅ 这里打印后端返回的原始数据
 
     let finalData = []

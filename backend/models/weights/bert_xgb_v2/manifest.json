@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "sentence_model_start": "all-MiniLM-L6-v2",
+  "numeric_columns": [
+    "Ti (wt%)",
+    "Mo (wt%)",
+    "Al (wt%)",
+    "Sn (wt%)",
+    "V (wt%)",
+    "Zr (wt%)",
+    "Cr (wt%)",
+    "Nb (wt%)",
+    "Ta (wt%)",
+    "Fe (wt%)",
+    "W (wt%)",
+    "Si (wt%)",
+    "O (wt%)",
+    "C (wt%)",
+    "N (wt%)",
+    "H (wt%)",
+    "Ni (wt%)",
+    "Cu (wt%)",
+    "B (wt%)",
+    "Mn (wt%)",
+    "Y (wt%)",
+    "Zn (wt%)",
+    "transition temperature (°C)"
+  ],
+  "embedding_dim": 384,
+  "feature_dim": 407,
+  "process_column": "Process",
+  "strength_column": "Strength (MPa)",
+  "elongation_column": "Elongation (%)",
+  "n_samples": 843,
+  "finetune_epochs": 0,
+  "xgb": {
+    "n_rounds": 200,
+    "early_stopping": 30,
+    "params": {
+      "objective": "reg:squarederror",
+      "eval_metric": "rmse",
+      "max_depth": 6,
+      "eta": 0.05,
+      "subsample": 0.9,
+      "colsample_bytree": 0.9,
+      "seed": 42
+    }
+  }
+}

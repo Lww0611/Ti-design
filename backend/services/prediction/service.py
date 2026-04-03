@@ -25,7 +25,7 @@ def predict_with_registry(payload: dict):
             status="running",
             title="Forward Prediction",
             input_json=payload,
-            case_id=case_id
+            case_id=payload.get("case_id"),
         )
         db.add(task)
         db.commit()
@@ -40,7 +40,7 @@ def predict_with_registry(payload: dict):
 
         # 3️⃣ 构造特征
         features = build_features(payload)
-        selected_models = payload.get("selectedModels", ["BERT-Regression"])
+        selected_models = payload.get("selectedModels", ["BERT-XGB-v2"])
 
         results = []
 

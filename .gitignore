@@ -47,3 +47,11 @@ __pycache__/
 .vscode/
 .idea/
 .DS_Store
+
+# HuggingFace cache (training script uses project-local HF_HOME)
+backend/.hf_hub_cache/
+
+# Local Python / Node (do not commit)
+backend/venv/
+venv/
+fronted/node_modules/

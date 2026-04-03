@@ -1,4 +1,5 @@
 # backend/services/features/builder.py
+from services.features.process_rewriter import rewrite_process_text
 
 ELEMENT_COLUMNS = [
     "Ti", "Mo", "Al", "Sn", "V", "Zr", "Cr", "Nb", "Ta", "Fe",
@@ -11,9 +12,21 @@ def build_element_features(elements: dict) -> dict:
     """
     元素特征补齐
     """
+    # 前端通常只填写合金元素，不填写 Ti。
+    # 为避免 Ti=0 导致输入分布严重偏离训练集，这里用平衡法自动补齐 Ti：
+    # Ti = max(0, 100 - sum(other elements))
+    elements_local = {k: float(v) for k, v in (elements or {}).items()}
+    ti_given = elements_local.get("Ti")
+    if ti_given is None or ti_given <= 0:
+        other_sum = 0.0
+        for k, v in elements_local.items():
+            if k != "Ti":
+                other_sum += max(0.0, float(v))
+        elements_local["Ti"] = max(0.0, 100.0 - other_sum)
+
     features = {}
     for ele in ELEMENT_COLUMNS:
-        features[f"{ele} (wt%)"] = float(elements.get(ele, 0.0))
+        features[f"{ele} (wt%)"] = float(elements_local.get(ele, 0.0))
     return features
 
 
@@ -61,7 +74,9 @@ def build_features(payload: dict) -> dict:
     features.update(build_element_features(payload.get("elements", {})))
 
     # ---- 2. transition temperature ----
-    features["transition temperature (°C)"] = 0
+    # 之前固定为 0 会导致输入明显偏离训练分布（对钛合金不合理）。
+    # 在前端未提供该字段时，使用 Ti 的典型相变温度 882°C 作为默认值。
+    features["transition temperature (°C)"] = float(payload.get("transitionTemperature", 882.0))
 
     # ---- 3. Process ----
     mode = payload.get("heatTreatmentMode")
@@ -69,7 +84,9 @@ def build_features(payload: dict) -> dict:
     if mode == "text":
         process_text = payload.get("heatTreatmentText", "").strip()
         if not process_text:
-            process_text = "unknown process"
+            process_text = "as-received"
+        else:
+            process_text = rewrite_process_text(process_text)
     else:
         process_text = normalize_process_structured(
             payload.get("heatTreatment"),

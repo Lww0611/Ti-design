@@ -2,7 +2,7 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
 const service = axios.create({
-    baseURL: 'http://127.0.0.1:8000/api', // 指向你的 FastAPI 地址
+    baseURL: 'http://127.0.0.1:8000/api/v1', // 与 FastAPI main.py 挂载前缀保持一致
     timeout: 5000 // 请求超时时间
 })
 

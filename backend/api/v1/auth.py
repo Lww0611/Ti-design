@@ -6,18 +6,18 @@ from typing import Annotated
 from db.db_models.user_table import User
 from db.session import get_db
 from schemas.user import RegisterRequest, LoginRequest
+import hashlib
 
 router = APIRouter(tags=["Auth"])
 
-# 密码哈希配置
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+def normalize_password(password: str) -> bytes:
+    return hashlib.sha256(password.encode()).digest()
 
-# --- 工具函数 ---
 def hash_password(password: str):
-    return pwd_context.hash(password)
+    return pwd_context.hash(normalize_password(password))
 
 def verify_password(password: str, hashed: str):
-    return pwd_context.verify(password, hashed)
+    return pwd_context.verify(normalize_password(password), hashed)
 
 # --- 依赖项函数 (原本在 deps/auth.py) ---
 def get_current_user(token: Annotated[str, Header(...)], db: Session = Depends(get_db)) -> User:
