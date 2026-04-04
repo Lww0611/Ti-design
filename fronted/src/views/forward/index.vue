@@ -84,7 +84,10 @@
                       <div class="model-select-container">
                         <el-checkbox-group v-model="form.selectedModels" class="vertical-checkbox-group">
                           <el-checkbox label="BERT-XGB-v2" border size="default" class="model-checkbox-block">
-                            BERT-XGB-v2
+                            BERT
+                          </el-checkbox>
+                          <el-checkbox label="MatSciBERT-XGB" border size="default" class="model-checkbox-block">
+                            MatSciBERT
                           </el-checkbox>
                         </el-checkbox-group>
                       </div>
@@ -644,6 +647,12 @@ onUnmounted(() => {
   border: 1px solid #f1f5f9;
   margin-bottom: 10px;
   overflow-y: auto; /* 模型多时可滚动 */
+}
+.model-hint {
+  font-size: 11px;
+  color: #94a3b8;
+  margin: 8px 0 0 0;
+  line-height: 1.4;
 }
 .vertical-checkbox-group {
   display: flex;

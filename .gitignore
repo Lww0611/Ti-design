@@ -51,6 +51,11 @@ __pycache__/
 # HuggingFace cache (training script uses project-local HF_HOME)
 backend/.hf_hub_cache/
 
+# MatSciBERT / HF encoder 权重体积大（>100MB），勿提交；克隆后请运行 train_matscibert_xgb.py 或拷贝本地 encoder/
+backend/models/weights/matscibert_xgb/encoder/*.safetensors
+backend/models/weights/matscibert_xgb/encoder/pytorch_model.bin
+backend/models/weights/matscibert_xgb/encoder/model*.bin
+
 # Local Python / Node (do not commit)
 backend/venv/
 venv/

@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "encoder_backend": "transformers_matscibert",
+  "hf_model_start": "m3rg-iitd/matscibert",
+  "numeric_columns": [
+    "Ti (wt%)",
+    "Mo (wt%)",
+    "Al (wt%)",
+    "Sn (wt%)",
+    "V (wt%)",
+    "Zr (wt%)",
+    "Cr (wt%)",
+    "Nb (wt%)",
+    "Ta (wt%)",
+    "Fe (wt%)",
+    "W (wt%)",
+    "Si (wt%)",
+    "O (wt%)",
+    "C (wt%)",
+    "N (wt%)",
+    "H (wt%)",
+    "Ni (wt%)",
+    "Cu (wt%)",
+    "B (wt%)",
+    "Mn (wt%)",
+    "Y (wt%)",
+    "Zn (wt%)",
+    "transition temperature (°C)"
+  ],
+  "embedding_dim": 768,
+  "feature_dim": 791,
+  "max_length": 256,
+  "process_column": "Process",
+  "strength_column": "Strength (MPa)",
+  "elongation_column": "Elongation (%)",
+  "n_samples": 843,
+  "finetune_epochs": 2,
+  "xgb": {
+    "n_rounds": 800,
+    "early_stopping": 80,
+    "params": {
+      "objective": "reg:squarederror",
+      "eval_metric": "rmse",
+      "max_depth": 6,
+      "eta": 0.05,
+      "subsample": 0.9,
+      "colsample_bytree": 0.9,
+      "seed": 42
+    }
+  },
+  "metrics": {
+    "strength": {
+      "train_r2": 0.98104327917099,
+      "val_r2": 0.6615614295005798
+    },
+    "elongation": {
+      "train_r2": 0.9596065282821655,
+      "val_r2": 0.504928708076477
+    }
+  },
+  "split": {
+    "test_size": 0.2,
+    "random_state": 42
+  }
+}

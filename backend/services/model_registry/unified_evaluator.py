@@ -20,6 +20,7 @@ import pandas as pd
 from db.db_models.model import Model
 from services.model_registry.evaluator import (
     evaluate_bert_xgb_v2_on_dataframe,
+    evaluate_matscibert_xgb_on_dataframe,
     evaluate_model_on_data,
 )
 
@@ -30,6 +31,7 @@ _STRATEGIES: dict[str, EvaluationHandler] = {}
 # 内置模型名 -> 策略 id（无 content、权重在磁盘等情况）
 _BUILTIN_MODEL_STRATEGY: dict[str, str] = {
     "BERT-XGB-v2": "pipeline_bert_xgb_v2",
+    "MatSciBERT-XGB": "pipeline_matscibert_xgb",
 }
 
 
@@ -93,9 +95,15 @@ def _handler_pipeline_bert_xgb_v2(model_rec: Model, df: pd.DataFrame) -> dict:
     return evaluate_bert_xgb_v2_on_dataframe(df)
 
 
+def _handler_pipeline_matscibert_xgb(model_rec: Model, df: pd.DataFrame) -> dict:
+    _ = model_rec
+    return evaluate_matscibert_xgb_on_dataframe(df)
+
+
 def _register_builtin_strategies() -> None:
     register_evaluation_strategy("pickle_tabular_regressor", _handler_pickle_tabular_regressor)
     register_evaluation_strategy("pipeline_bert_xgb_v2", _handler_pipeline_bert_xgb_v2)
+    register_evaluation_strategy("pipeline_matscibert_xgb", _handler_pipeline_matscibert_xgb)
 
 
 _register_builtin_strategies()

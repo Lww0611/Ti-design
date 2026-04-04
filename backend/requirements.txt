@@ -23,6 +23,7 @@ passlib[bcrypt]
 # BERT 混合模型 — pickle 依赖 transformers 内部类名，须与保存 encoder 的环境一致
 # 训练机 (Matflow-AD) 已确认: transformers 4.45.2, torch 2.5.1
 # 请在本机执行 pip show sentence-transformers，将下一行改为相同 Version（或不低于训练机）
+# MatSciBERT-XGB：scripts/train_matscibert_xgb.py（默认 m3rg-iitd/matscibert）共用 transformers/torch
 torch==2.5.1
 transformers==4.45.2
 sentence-transformers==5.2.0
