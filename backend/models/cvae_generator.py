@@ -1,5 +1,5 @@
 import math
-from typing import Dict, List, Sequence
+from typing import Dict, List, Sequence, Tuple
 
 import joblib
 import numpy as np
@@ -139,27 +139,71 @@ class CompositionGenerator:
 
         self.scaler = joblib.load(self.scaler_path)
 
-    def _build_cond_vector(
+    @staticmethod
+    def _three_centers(lo: float, hi: float) -> List[float]:
+        """在 [lo,hi] 上取端点与中点；区间极窄时退化为单点。"""
+        if hi < lo:
+            lo, hi = hi, lo
+        if hi - lo < 1e-3:
+            return [(lo + hi) / 2.0]
+        return [lo, (lo + hi) / 2.0, hi]
+
+    def _cond_centers_grid(
         self,
         target_strength: Sequence[float] | None,
         target_elongation: Sequence[float] | None,
-    ) -> np.ndarray:
+    ) -> List[Tuple[float, float]]:
         """
-        把目标区间转换为 2 维 cond（Rm_center, A_center），再用 scaler 归一化。
+        在用户给定的 Rm、A 目标区间上取网格中心（最多 3×3）。
+        单一中心时 CVAE 条件变化弱，滑块几乎不改变采样分布；网格让目标范围真正参与条件生成。
         """
         if target_strength and len(target_strength) == 2:
-            rm_center = float((target_strength[0] + target_strength[1]) / 2.0)
+            r0, r1 = float(target_strength[0]), float(target_strength[1])
+            rm_pts = self._three_centers(r0, r1)
         else:
-            rm_center = 1000.0
+            rm_pts = [1000.0]
 
         if target_elongation and len(target_elongation) == 2:
-            a_center = float((target_elongation[0] + target_elongation[1]) / 2.0)
+            a0, a1 = float(target_elongation[0]), float(target_elongation[1])
+            a_pts = self._three_centers(a0, a1)
         else:
-            a_center = 15.0
+            a_pts = [15.0]
 
+        return [(r, a) for r in rm_pts for a in a_pts]
+
+    def _scaled_cond_tensor(self, rm_center: float, a_center: float) -> torch.Tensor:
         cond_raw = np.array([[rm_center, a_center]], dtype=np.float32)
-        cond_scaled = self.scaler.transform(cond_raw)
-        return cond_scaled[0]
+        cond_scaled = self.scaler.transform(cond_raw)[0]
+        return torch.tensor(cond_scaled, dtype=torch.float32, device=self.device)
+
+    def _decoder_rows_to_compositions(
+        self,
+        x_np: np.ndarray,
+        constraints: Dict[str, Sequence[float]],
+    ) -> List[Dict[str, float]]:
+        n = x_np.shape[0]
+        results: List[Dict[str, float]] = []
+        for i in range(n):
+            vec = x_np[i]
+            comp: Dict[str, float] = {}
+            for idx, ele in enumerate(self.elements):
+                val = float(vec[idx])
+                if math.isnan(val) or math.isinf(val):
+                    val = 0.0
+                if val < 0:
+                    val = 0.0
+
+                min_v, max_v = constraints.get(ele, [0.0, 0.0])
+                min_v, max_v = float(min_v), float(max_v)
+                if max_v <= 0:
+                    val = 0.0
+                else:
+                    scaled = 1.0 / (1.0 + math.exp(-val))
+                    val = min_v + (max_v - min_v) * scaled
+
+                comp[ele] = round(val, 3)
+            results.append(comp)
+        return results
 
     def sample_compositions(
         self,
@@ -169,42 +213,17 @@ class CompositionGenerator:
         n_samples: int = 100,
     ) -> List[Dict[str, float]]:
         """
-        根据约束和目标，从 CVAE 采样多组成分。
+        在目标 Rm×A 区间上网格取多个条件点，分别采样再合并，使前端滑块范围明显影响生成。
         """
-        cond_vec = self._build_cond_vector(target_strength, target_elongation)
-        cond_tensor = torch.tensor(cond_vec, dtype=torch.float32, device=self.device)
+        centers = self._cond_centers_grid(target_strength, target_elongation)
+        n_centers = len(centers)
+        per = max(1, (n_samples + n_centers - 1) // n_centers)
 
-        x = self.model.sample(cond_tensor, n_samples=n_samples)  # [n_samples, input_dim]
-        x_np = x.cpu().numpy()
+        out: List[Dict[str, float]] = []
+        for rm_c, a_c in centers:
+            cond_tensor = self._scaled_cond_tensor(rm_c, a_c)
+            x = self.model.sample(cond_tensor, n_samples=per)
+            out.extend(self._decoder_rows_to_compositions(x.cpu().numpy(), constraints))
 
-        results: List[Dict[str, float]] = []
-
-        for i in range(n_samples):
-            vec = x_np[i]
-            comp: Dict[str, float] = {}
-
-            # 原训练时 elements 的顺序与 input_dim 对齐
-            for idx, ele in enumerate(self.elements):
-                val = float(vec[idx])
-                # 限制在 [0, +inf) 避免出现明显负值
-                if math.isnan(val) or math.isinf(val):
-                    val = 0.0
-                if val < 0:
-                    val = 0.0
-
-                min_v, max_v = constraints.get(ele, [0.0, 0.0])
-                # 若 max_v 为 0，说明前端不希望此元素出现
-                if max_v <= 0:
-                    val = 0.0
-                else:
-                    # 把模型输出映射到 [min_v, max_v] 区间
-                    # 这里使用一个简单的线性缩放：先 sigmoid，再缩放到区间
-                    scaled = 1.0 / (1.0 + math.exp(-val))
-                    val = min_v + (max_v - min_v) * scaled
-
-                comp[ele] = round(val, 3)
-
-            results.append(comp)
-
-        return results
+        return out[:n_samples]
 

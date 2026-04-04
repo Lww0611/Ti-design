@@ -8,11 +8,158 @@ from models.cvae_generator import CompositionGenerator
 import logging
 import os
 import random
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
+
+def _normalize_interval(raw) -> Optional[List[float]]:
+    """把前端/JSON 的目标区间规范为 [lo, hi] 浮点，避免滑块数据未参与计算。"""
+    if raw is None:
+        return None
+    try:
+        if not isinstance(raw, (list, tuple)) or len(raw) < 2:
+            return None
+        a, b = float(raw[0]), float(raw[1])
+        return [a, b]
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalize_constraints(raw) -> Dict[str, List[float]]:
+    out: Dict[str, List[float]] = {}
+    if not isinstance(raw, dict):
+        return out
+    for k, v in raw.items():
+        try:
+            if isinstance(v, (list, tuple)) and len(v) >= 2:
+                out[str(k)] = [float(v[0]), float(v[1])]
+        except (TypeError, ValueError):
+            continue
+    return out
+
 _global_cvae_generator: CompositionGenerator | None = None
+
+
+def _composition_key(elements: Dict[str, float], ndigits: int = 3) -> str:
+    """成分去重用键（排序后固定小数位，避免 Top5 出现同一配方占满多行）。"""
+    return "|".join(f"{k}:{round(float(v), ndigits)}" for k, v in sorted(elements.items()))
+
+
+def _dist_to_interval(value: float, interval: List[float] | None) -> float:
+    """到目标区间的距离：区间内为 0，区间外为到较近边界的距离。"""
+    if not interval or len(interval) != 2:
+        return 0.0
+    lo, hi = float(interval[0]), float(interval[1])
+    if lo > hi:
+        lo, hi = hi, lo
+    if lo <= value <= hi:
+        return 0.0
+    return float(min(abs(value - lo), abs(value - hi)))
+
+
+def _total_target_distance(
+    strength: float,
+    elongation: float,
+    target_strength: List[float] | None,
+    target_elongation: List[float] | None,
+) -> float:
+    return _dist_to_interval(strength, target_strength) + _dist_to_interval(
+        elongation, target_elongation
+    )
+
+
+def _dedupe_candidates_by_composition(
+    candidates: List[dict],
+    target_strength: List[float] | None,
+    target_elongation: List[float] | None,
+) -> List[dict]:
+    """相同成分只保留「离双目标总距离更小」的一条。"""
+    best: Dict[str, dict] = {}
+    for c in candidates:
+        key = _composition_key(c["elements"])
+        prev = best.get(key)
+        d = _total_target_distance(
+            float(c["predicted_strength"]),
+            float(c["predicted_elongation"]),
+            target_strength,
+            target_elongation,
+        )
+        if prev is None:
+            best[key] = c
+            continue
+        d_prev = _total_target_distance(
+            float(prev["predicted_strength"]),
+            float(prev["predicted_elongation"]),
+            target_strength,
+            target_elongation,
+        )
+        if d < d_prev:
+            best[key] = c
+    return list(best.values())
+
+
+def _ui_fit_score(
+    strength: float,
+    elongation: float,
+    target_strength: List[float] | None,
+    target_elongation: List[float] | None,
+) -> float:
+    """0–100：与目标区间的匹配程度，供前端展示。"""
+    parts: List[float] = []
+    if target_strength:
+        ds = _dist_to_interval(strength, target_strength)
+        span = max(float(target_strength[1]) - float(target_strength[0]), 1.0)
+        parts.append(max(0.0, 50.0 - (ds / span) * 50.0))
+    else:
+        parts.append(50.0)
+    if target_elongation:
+        de = _dist_to_interval(elongation, target_elongation)
+        span_e = max(float(target_elongation[1]) - float(target_elongation[0]), 0.5)
+        parts.append(max(0.0, 50.0 - (de / span_e) * 50.0))
+    else:
+        parts.append(50.0)
+    return float(round(min(99.9, sum(parts)), 1))
+
+
+def _balanced_sort_key(
+    c: dict,
+    target_strength: List[float] | None,
+    target_elongation: List[float] | None,
+) -> tuple:
+    """综合优先：总目标偏差最小，再以归一化 (Rm+A) 作平局打破。升序排序更优在前。"""
+    s = float(c["predicted_strength"])
+    e = float(c["predicted_elongation"])
+    ds = _dist_to_interval(s, target_strength)
+    de = _dist_to_interval(e, target_elongation)
+    return (ds + de, -(s / 1800.0 + e / 30.0))
+
+
+def _element_l1(a: Dict[str, float], b: Dict[str, float], keys: List[str]) -> float:
+    return sum(abs(float(a.get(k, 0.0)) - float(b.get(k, 0.0))) for k in keys)
+
+
+def _pick_diverse_top(
+    sorted_candidates: List[dict],
+    n: int = 5,
+) -> List[dict]:
+    """在已排序列表上贪心选取成分 L1 足够分散的 TopN，避免表格里多条几乎相同。"""
+    if not sorted_candidates:
+        return []
+    keys = sorted({k for c in sorted_candidates for k in c["elements"]})
+    min_l1_steps = [0.55, 0.35, 0.2, 0.1, 0.0]
+    for min_l1 in min_l1_steps:
+        picked: List[dict] = []
+        for c in sorted_candidates:
+            if len(picked) >= n:
+                break
+            if min_l1 > 0 and picked:
+                if any(_element_l1(c["elements"], p["elements"], keys) < min_l1 for p in picked):
+                    continue
+            picked.append(c)
+        if len(picked) >= min(n, len(sorted_candidates)):
+            return picked[:n]
+    return sorted_candidates[:n]
 
 
 def _get_cvae_generator() -> CompositionGenerator:
@@ -26,48 +173,6 @@ def _get_cvae_generator() -> CompositionGenerator:
             scaler_path=scaler_path,
         )
     return _global_cvae_generator
-
-
-def _score_candidate(
-    strength: float,
-    elongation: float,
-    target_strength: List[float] | None,
-    target_elongation: List[float] | None,
-    strategy: str,
-) -> float:
-    score = 0.0
-
-    if target_strength:
-        if target_strength[0] <= strength <= target_strength[1]:
-            score += 30
-        else:
-            dist = min(
-                abs(strength - target_strength[0]),
-                abs(strength - target_strength[1]),
-            )
-            score += max(0.0, 30.0 - dist * 0.1)
-
-    if target_elongation:
-        if target_elongation[0] <= elongation <= target_elongation[1]:
-            score += 30
-        else:
-            dist = min(
-                abs(elongation - target_elongation[0]),
-                abs(elongation - target_elongation[1]),
-            )
-            score += max(0.0, 30.0 - dist * 2.0)
-
-    norm_s = min(strength, 1800.0) / 1800.0
-    norm_e = min(elongation, 30.0) / 30.0
-
-    if strategy == "strength":
-        score += (norm_s * 0.8 + norm_e * 0.2) * 40.0
-    elif strategy == "ductility":
-        score += (norm_s * 0.2 + norm_e * 0.8) * 40.0
-    else:
-        score += (norm_s * 0.5 + norm_e * 0.5) * 40.0
-
-    return float(round(min(score, 99.9), 1))
 
 
 def _predict_performance_for_elements(elements: Dict[str, float]) -> Tuple[float, float]:
@@ -105,12 +210,54 @@ def _predict_performance_for_elements(elements: Dict[str, float]) -> Tuple[float
     return strength, elongation
 
 
+def _generate_random_forward_candidates(
+    constraints: Dict[str, List[float]],
+    target_strength: Optional[List[float]],
+    target_elongation: Optional[List[float]],
+    n_random: int,
+) -> List[dict]:
+    """
+    在元素约束盒内均匀随机采样 + 真实正向模型。
+    VAE 流形往往窄，正向预测容易挤在某一强度带；随机点能把「目标区间」在排序里真正体现出来。
+    """
+    candidates: List[dict] = []
+    if not constraints:
+        return candidates
+    keys = list(constraints.keys())
+    for _ in range(n_random):
+        elements: Dict[str, float] = {}
+        for el in keys:
+            lo, hi = constraints[el]
+            lo, hi = float(lo), float(hi)
+            if hi < lo:
+                lo, hi = hi, lo
+            if hi <= 0 and lo <= 0:
+                elements[el] = 0.0
+            else:
+                elements[el] = round(random.uniform(lo, hi), 3)
+        try:
+            strength, elongation = _predict_performance_for_elements(elements)
+        except Exception:
+            continue
+        candidates.append(
+            {
+                "elements": elements,
+                "predicted_strength": round(strength, 1),
+                "predicted_elongation": round(elongation, 1),
+                "score": _ui_fit_score(
+                    strength, elongation, target_strength, target_elongation
+                ),
+            }
+        )
+    return candidates
+
+
 def _generate_candidates_with_vae(
     constraints: Dict[str, List[float]],
-    target_strength: List[float] | None,
-    target_elongation: List[float] | None,
-    strategy: str,
+    target_strength: Optional[List[float]],
+    target_elongation: Optional[List[float]],
     n_samples: int = 100,
+    n_random_supplement: int = 280,
 ) -> List[dict]:
     generator = _get_cvae_generator()
 
@@ -130,12 +277,8 @@ def _generate_candidates_with_vae(
             logger.warning(f"Forward prediction failed for elements {elements}: {e}")
             continue
 
-        score = _score_candidate(
-            strength=strength,
-            elongation=elongation,
-            target_strength=target_strength,
-            target_elongation=target_elongation,
-            strategy=strategy,
+        score = _ui_fit_score(
+            strength, elongation, target_strength, target_elongation
         )
 
         candidates.append(
@@ -147,40 +290,56 @@ def _generate_candidates_with_vae(
             }
         )
 
+    if n_random_supplement > 0 and constraints:
+        candidates.extend(
+            _generate_random_forward_candidates(
+                constraints,
+                target_strength,
+                target_elongation,
+                n_random_supplement,
+            )
+        )
+
     return candidates
 
 
 def _generate_candidates_mock(
     constraints: Dict[str, List[float]],
-    target_strength: List[float] | None,
-    target_elongation: List[float] | None,
-    strategy: str,
+    target_strength: Optional[List[float]],
+    target_elongation: Optional[List[float]],
 ) -> List[dict]:
     candidates: List[dict] = []
 
-    for _ in range(50):
+    rm = target_strength
+    ae = target_elongation
+    base_rm = (rm[0] + rm[1]) / 2.0 if rm else 1000.0
+    base_a = (ae[0] + ae[1]) / 2.0 if ae else 15.0
+    half_rm = max(abs(rm[1] - rm[0]) / 2.0, 60.0) if rm else 160.0
+    half_a = max(abs(ae[1] - ae[0]) / 2.0, 1.5) if ae else 6.0
+
+    for _ in range(160):
         elements = {
             el: round(random.uniform(rng[0], rng[1]), 2) for el, rng in constraints.items()
         }
 
-        strength = (
-            400
-            + elements.get("Al", 0) * 60
-            + elements.get("V", 0) * 40
-            + elements.get("Mo", 0) * 30
-            + elements.get("O", 0) * 800
-            + elements.get("N", 0) * 1000
-            + random.uniform(-50, 50)
+        comp_tweak = (
+            (elements.get("Al", 0) - 6.2) * 42
+            + (elements.get("V", 0) - 4.0) * 28
+            + elements.get("Mo", 0) * 22
+            + random.uniform(-half_rm * 0.45, half_rm * 0.45)
         )
+        strength = base_rm + comp_tweak * 0.4
+        strength = max(400.0, min(1800.0, strength))
 
-        elongation = max(5, 30 - strength / 60)
+        elongation = (
+            base_a
+            + random.uniform(-half_a * 0.55, half_a * 0.55)
+            + (1100.0 - min(strength, 1100.0)) / 95.0
+        )
+        elongation = max(2.0, min(38.0, elongation))
 
-        score = _score_candidate(
-            strength=strength,
-            elongation=elongation,
-            target_strength=target_strength,
-            target_elongation=target_elongation,
-            strategy=strategy,
+        score = _ui_fit_score(
+            strength, elongation, target_strength, target_elongation
         )
 
         candidates.append(
@@ -219,11 +378,14 @@ def inverse_with_registry(payload: dict):
         db.commit()
         db.refresh(task)
 
-        # 2️⃣ 解析输入
-        constraints = payload.get("constraints", {})
-        target_strength = payload.get("targetStrength", payload.get("targetRm"))
-        target_elongation = payload.get("targetElongation", payload.get("targetA"))
-        strategy = payload.get("strategy", "balanced")
+        # 2️⃣ 解析输入（规范区间，确保滑块 targetRm/targetA 参与 CVAE 与排序）
+        constraints = _normalize_constraints(payload.get("constraints") or {})
+        target_strength = _normalize_interval(
+            payload.get("targetStrength", payload.get("targetRm"))
+        )
+        target_elongation = _normalize_interval(
+            payload.get("targetElongation", payload.get("targetA"))
+        )
 
         # 3️⃣ 使用 VAE 生成候选方案；失败时回退到 mock
         try:
@@ -231,8 +393,7 @@ def inverse_with_registry(payload: dict):
                 constraints=constraints,
                 target_strength=target_strength,
                 target_elongation=target_elongation,
-                strategy=strategy,
-                n_samples=100,
+                n_samples=400,
             )
             if not candidates:
                 logger.warning("No candidates generated by VAE, fallback to mock.")
@@ -240,7 +401,6 @@ def inverse_with_registry(payload: dict):
                     constraints=constraints,
                     target_strength=target_strength,
                     target_elongation=target_elongation,
-                    strategy=strategy,
                 )
         except Exception:
             logger.exception("VAE-based inverse generation failed, fallback to mock.")
@@ -248,12 +408,16 @@ def inverse_with_registry(payload: dict):
                 constraints=constraints,
                 target_strength=target_strength,
                 target_elongation=target_elongation,
-                strategy=strategy,
             )
 
-        # 5️⃣ Top5
-        candidates.sort(key=lambda x: x["score"], reverse=True)
-        top5 = candidates[:5]
+        # 5️⃣ 去重 → 综合排序 → 成分多样化取 Top5
+        candidates = _dedupe_candidates_by_composition(
+            candidates, target_strength, target_elongation
+        )
+        candidates.sort(
+            key=lambda x: _balanced_sort_key(x, target_strength, target_elongation)
+        )
+        top5 = _pick_diverse_top(candidates, 5)
 
         results = []
 

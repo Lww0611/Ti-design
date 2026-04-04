@@ -1,12 +1,10 @@
-import io
 import pandas as pd
 import traceback
 import joblib # 确保顶部导出了 joblib
 from datetime import datetime
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import select
-from sklearn.metrics import r2_score
+from sqlalchemy import select, or_
 
 from core import config
 from db.session import get_db
@@ -15,7 +13,7 @@ from api.v1.auth import get_current_user
 from utils.model_loader import try_load_model
 # 请确保该文件路径正确
 from services.model_registry.validator import validate_metadata_against_dataset
-from services.model_registry.evaluator import evaluate_model_on_data
+from services.model_registry.unified_evaluator import evaluate_model_record
 
 model_manager_router = APIRouter(prefix="/models", tags=["Model Registry"])
 
@@ -97,38 +95,37 @@ async def register_model_api(
 @model_manager_router.post("/{model_id}/evaluate")
 async def evaluate_model(model_id: int, db: Session = Depends(get_db), user = Depends(get_current_user)):
     # 🌟 【修复点 1】：先从数据库里把模型记录“抓”出来
-    model_rec = db.query(Model).filter(Model.id == model_id, Model.user_id == user.id).first()
+    # 本人上传的模型 + 全局内置模型（登记在首个用户下，但所有登录用户应可评估）
+    model_rec = (
+        db.query(Model)
+        .filter(
+            Model.id == model_id,
+            or_(Model.user_id == user.id, Model.status == "builtin"),
+        )
+        .first()
+    )
 
     if not model_rec:
         raise HTTPException(status_code=404, detail="未找到指定的模型记录，或您无权访问")
 
     try:
-        # 🌟 【修复点 2】：将数据库里的二进制内容转换成可运行的模型对象
-        # 此时 model_rec 已经存在，可以安全地访问 model_rec.content
-        model_obj = joblib.load(io.BytesIO(model_rec.content))
-
-        # 2. 加载系统数据集
         if not config.SYSTEM_DATASET_PATH.exists():
             raise HTTPException(status_code=404, detail="系统评估数据集文件缺失")
 
         df = pd.read_csv(config.SYSTEM_DATASET_PATH)
 
-        # 3. 执行评估
-        # 这里的 evaluate_model_on_data 是你从 services 导入的函数
-        r2 = evaluate_model_on_data(
-            model_obj=model_obj,
-            df=df,
-            features=model_rec.features,
-            target_col=model_rec.target
-        )
+        # 与工作流「模型评估」共用：统一入口按策略分发（pickle / 内置管线等）
+        try:
+            metrics = evaluate_model_record(model_rec, df)
+        except ValueError as ve:
+            raise HTTPException(status_code=400, detail=str(ve)) from ve
 
-        # 4. 更新数据库状态
-        model_rec.metrics = {"r2_score": r2}
+        model_rec.metrics = metrics
         model_rec.status = "evaluated"
         model_rec.evaluated_at = datetime.utcnow()
         db.commit()
 
-        return {"r2_score": r2, "status": "success"}
+        return {"status": "success", **metrics}
 
     except Exception as e:
         db.rollback()
@@ -141,6 +138,8 @@ async def delete_model(model_id: int, db: Session = Depends(get_db), user = Depe
     model_rec = db.query(Model).filter(Model.id == model_id, Model.user_id == user.id).first()
     if not model_rec:
         raise HTTPException(status_code=404, detail="无权删除该模型")
+    if model_rec.status == "builtin":
+        raise HTTPException(status_code=400, detail="内置模型不可删除")
 
     try:
         db.delete(model_rec)
@@ -154,16 +153,21 @@ async def delete_model(model_id: int, db: Session = Depends(get_db), user = Depe
 @model_manager_router.get("")
 def list_models(db: Session = Depends(get_db), user = Depends(get_current_user)):
     # 明确指定字段，排除 model.content 防止二进制流导致编码错误或响应过慢
-    stmt = select(
-        Model.id,
-        Model.model_name,
-        Model.features,
-        Model.target,
-        Model.status,
-        Model.metrics,
-        Model.description,
-        Model.created_at
-    ).order_by(Model.created_at.desc())
+    # 仅列出当前用户模型 + 内置模型，避免看到别人私有模型且与 evaluate 权限一致
+    stmt = (
+        select(
+            Model.id,
+            Model.model_name,
+            Model.features,
+            Model.target,
+            Model.status,
+            Model.metrics,
+            Model.description,
+            Model.created_at,
+        )
+        .where(or_(Model.user_id == user.id, Model.status == "builtin"))
+        .order_by(Model.created_at.desc())
+    )
 
     results = db.execute(stmt).all()
 

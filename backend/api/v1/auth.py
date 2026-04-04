@@ -10,14 +10,33 @@ import hashlib
 
 router = APIRouter(tags=["Auth"])
 
-def normalize_password(password: str) -> bytes:
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def _password_sha256_hex(password: str) -> str:
+    """先 SHA256 再交给 bcrypt，避免明文过长；用 hex 字符串避免摘要里的 \\0 截断 bcrypt 密码。"""
+    return hashlib.sha256(password.encode()).hexdigest()
+
+
+def _password_sha256_bytes_legacy(password: str) -> bytes:
+    """历史注册可能用过 digest()，登录时做一次兼容校验。"""
     return hashlib.sha256(password.encode()).digest()
 
-def hash_password(password: str):
-    return pwd_context.hash(normalize_password(password))
 
-def verify_password(password: str, hashed: str):
-    return pwd_context.verify(normalize_password(password), hashed)
+def hash_password(password: str) -> str:
+    return pwd_context.hash(_password_sha256_hex(password))
+
+
+def verify_password(password: str, hashed: str) -> bool:
+    if not hashed:
+        return False
+    for secret in (_password_sha256_hex(password), _password_sha256_bytes_legacy(password)):
+        try:
+            if pwd_context.verify(secret, hashed):
+                return True
+        except (ValueError, TypeError):
+            continue
+    return False
 
 # --- 依赖项函数 (原本在 deps/auth.py) ---
 def get_current_user(token: Annotated[str, Header(...)], db: Session = Depends(get_db)) -> User:

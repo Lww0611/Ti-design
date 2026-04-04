@@ -108,11 +108,22 @@
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="R² 评分" width="100">
+              <el-table-column label="R² 评分" min-width="120">
                 <template #default="scope">
-                  <span class="r2-score" v-if="scope.row.metrics?.r2_score">
-                    {{ scope.row.metrics.r2_score.toFixed(4) }}
-                  </span>
+                  <el-tooltip
+                    v-if="scope.row.metrics?.r2_score != null && scope.row.metrics?.r2_score !== undefined"
+                    :disabled="scope.row.metrics?.r2_score_strength == null"
+                    placement="top"
+                  >
+                    <template #content>
+                      <span v-if="scope.row.metrics?.r2_score_strength != null">
+                        强度 R²: {{ scope.row.metrics.r2_score_strength.toFixed(4) }}<br/>
+                        延伸率 R²: {{ scope.row.metrics.r2_score_elongation.toFixed(4) }}<br/>
+                        样本数: {{ scope.row.metrics.n_samples ?? '-' }}
+                      </span>
+                    </template>
+                    <span class="r2-score">{{ Number(scope.row.metrics.r2_score).toFixed(4) }}</span>
+                  </el-tooltip>
                   <span v-else>-</span>
                 </template>
               </el-table-column>

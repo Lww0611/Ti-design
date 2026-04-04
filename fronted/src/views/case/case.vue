@@ -273,11 +273,13 @@ async function runEvaluation() {
     clearInterval(progressTimer)
     evalProgress.value = 100
 
-    // 注意：根据你后端返回的结构 {"r2_score": r2, "status": "success"}
+    // 与模型管理页相同接口：扁平 JSON，含 status、r2_score 等（r2 为 0 时不能用 truthy 判断）
+    const body = res.data
+    const fmt = (v) => (typeof v === 'number' && !Number.isNaN(v) ? v.toFixed(4) : '—')
     workflowSteps[2].results = {
-      r2: res.data.r2_score ? res.data.r2_score.toFixed(4) : 'N/A',
-      mae: '计算中...', // 如果后端暂时没返回 MAE，可以先占位
-      rmse: '计算中...'
+      r2: typeof body.r2_score === 'number' && !Number.isNaN(body.r2_score) ? body.r2_score.toFixed(4) : 'N/A',
+      mae: fmt(body.mae),
+      rmse: fmt(body.rmse),
     }
 
     // 4. 延迟一下让用户看清 100% 状态

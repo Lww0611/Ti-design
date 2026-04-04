@@ -45,5 +45,3 @@ class InverseRequest(BaseModel):
     # 目标属性
     targetRm: List[float]
     targetA: List[float]
-
-    strategy: str = 'balanced'

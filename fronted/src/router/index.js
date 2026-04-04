@@ -55,12 +55,6 @@ const routes = [
                 meta: { title: '成分逆向设计' }
             },
             {
-                path: 'comparison',
-                name: 'Comparison',
-                component: () => import('../views/comparison/index.vue'),
-                meta: { title: '对比分析' }
-            },
-            {
                 path: 'history',
                 name: 'History',
                 component: () => import('../views/history/index.vue'),

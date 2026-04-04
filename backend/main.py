@@ -27,11 +27,13 @@ app.include_router(api_router, prefix="/api/v1")
 
 # ✅ 启动逻辑保持不变
 from services.dataset.dataset_init import init_system_datasets
+from services.builtin_models import init_builtin_models
 
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
     init_system_datasets()   # ✅ 自动导入系统数据集
+    init_builtin_models()    # ✅ 内置预测模型写入 model 表
 
 
 if __name__ == "__main__":

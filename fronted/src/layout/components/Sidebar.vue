@@ -48,11 +48,6 @@
         <template #title>成分逆向设计</template>
       </el-menu-item>
 
-      <el-menu-item index="/comparison">
-        <el-icon><Histogram /></el-icon>
-        <template #title>方案对比分析</template>
-      </el-menu-item>
-
       <el-menu-item index="/history">
         <el-icon><Collection /></el-icon>
         <template #title>实验历史记录</template>
@@ -68,7 +63,6 @@ import {
   OfficeBuilding,
   Compass,
   Odometer,
-  Histogram,
   Collection
 } from "@element-plus/icons-vue"
 

@@ -79,22 +79,9 @@
                   </div>
                 </div>
 
-                <!-- 3. 搜索策略 -->
-                <div class="form-section">
-                  <div class="section-title">
-                    <span class="icon-box blue-icon"><el-icon><Compass /></el-icon></span>
-                    优化重心
-                  </div>
-                  <el-radio-group v-model="form.strategy" class="strategy-group">
-                    <el-radio-button label="balanced">⚖️ 综合平衡</el-radio-button>
-                    <el-radio-button label="strength">💪 强度优先</el-radio-button>
-                    <el-radio-button label="ductility">🧬 塑性优先</el-radio-button>
-                  </el-radio-group>
-                </div>
-
                 <div class="form-section no-bg">
                   <el-button class="predict-btn" type="primary" size="large" @click="handleInverse" :loading="loading">
-                    <el-icon class="el-icon--left"><MagicStick /></el-icon> 启动成分逆向演化算法
+                    <el-icon class="el-icon--left"><MagicStick /></el-icon> 生成推荐方案
                   </el-button>
                 </div>
 
@@ -117,7 +104,7 @@
               <!-- 上半部分：表格 (自适应高度，内部滚动) -->
               <div class="result-table-section">
                 <div v-if="inverseResults.length > 0" class="table-inner-container">
-                  <el-table :data="inverseResults" style="width: 100%" border stripe size="small">
+                  <el-table :data="inverseResults" :row-key="(row) => row.rank" style="width: 100%" border stripe size="small">
                     <el-table-column prop="rank" label="排名" width="60" align="center">
                       <template #default="scope">
                         <div class="rank-badge" :class="'rank-'+scope.row.rank">{{ scope.row.rank }}</div>
@@ -181,7 +168,7 @@
 <script setup>
 import { reactive, ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Aim, Compass, Operation, MagicStick, Search } from '@element-plus/icons-vue'
+import { Aim, Operation, MagicStick, Search } from '@element-plus/icons-vue'
 import request from '@/utils/request'
 import * as echarts from 'echarts'
 
@@ -206,19 +193,15 @@ initConstraints['V'] = [3.5, 4.5]
 const form = reactive({
   targetRm: [900, 1100],
   targetA: [10, 20],
-  strategy: 'balanced',
   constraints: initConstraints
 })
 
 const handleInverse = async () => {
   loading.value = true
   try {
+    // 封装请求在 status===success 时已解包为 res.data（即 Top5 结果数组）
     const res = await request.post('/inverse', form)
-
-    let data = []
-    if (Array.isArray(res)) data = res
-    else if (res && Array.isArray(res.data)) data = res.data
-    else if (res && res.data && Array.isArray(res.data.data)) data = res.data.data
+    const data = Array.isArray(res) ? res : []
 
     inverseResults.value = data
 
@@ -477,7 +460,6 @@ onUnmounted(() => {
 }
 
 .purple-icon { background: linear-gradient(135deg, #fccb90 0%, #d57eeb 100%); }
-.blue-icon { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
 .green-icon { background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%); }
 
 .target-panel {
@@ -505,26 +487,6 @@ onUnmounted(() => {
   text-align: right;
   font-weight: bold;
   margin-top: -5px;
-}
-
-.strategy-group {
-  width: 100%;
-}
-
-:deep(.el-radio-button__inner) {
-  width: 100%;
-  border: none;
-  background: #f1f5f9;
-  margin-right: 5px;
-  border-radius: 6px;
-  font-size: 12px;
-  padding: 8px 15px;
-}
-
-:deep(.el-radio-button__original-radio:checked + .el-radio-button__inner) {
-  background: #764ba2;
-  color: white;
-  box-shadow: none;
 }
 
 .elements-grid {

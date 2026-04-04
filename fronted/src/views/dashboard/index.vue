@@ -64,12 +64,9 @@ const handleCommand=(command)=>{
   }}
 const navs=[
   {title:"Dataset Management",path:"/datasets"},
-  {title:"Feature Engineering",path:"/feature"},
   {title:"Model Registry",path:"/management"},
-  {title:"Model Evaluation",path:"/evaluation"},
   {title:"Property Prediction",path:"/forward"},
   {title:"Inverse Design",path:"/inverse"},
-  {title:"Comparison Analysis",path:"/comparison"},
   {title:"Experiment History",path:"/history"}
 ]
 </script>
