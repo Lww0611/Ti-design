@@ -22,10 +22,15 @@ raw_cors = os.getenv("CORS_ORIGINS", "*").strip()
 allow_origins = ["*"] if raw_cors == "*" else [
     origin.strip() for origin in raw_cors.split(",") if origin.strip()
 ]
+# 允许 Vercel 预览域名（每次部署子域会变化），可按需覆盖为更严格正则
+# 例如：^https://ti-design(-[a-z0-9-]+)?\\.vercel\\.app$
+raw_cors_regex = os.getenv("CORS_ORIGIN_REGEX", r"^https://.*\.vercel\.app$")
+allow_origin_regex = None if raw_cors == "*" else (raw_cors_regex or None)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allow_origins,
+    allow_origin_regex=allow_origin_regex,
     allow_methods=["*"],
     allow_headers=["*"],
 )
