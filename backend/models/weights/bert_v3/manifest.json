@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "encoder_backend": "legacy_bert_v3_pickle",
+  "numeric_columns": [
+    "Ti (wt%)",
+    "Mo (wt%)",
+    "Al (wt%)",
+    "Sn (wt%)",
+    "V (wt%)",
+    "Zr (wt%)",
+    "Cr (wt%)",
+    "Nb (wt%)",
+    "Ta (wt%)",
+    "Fe (wt%)",
+    "W (wt%)",
+    "Si (wt%)",
+    "O (wt%)",
+    "C (wt%)",
+    "N (wt%)",
+    "H (wt%)",
+    "Ni (wt%)",
+    "Cu (wt%)",
+    "B (wt%)",
+    "Mn (wt%)",
+    "Y (wt%)",
+    "Zn (wt%)",
+    "transition temperature (°C)"
+  ],
+  "process_column": "Process",
+  "strength_column": "Strength (MPa)",
+  "elongation_column": "Elongation (%)"
+}

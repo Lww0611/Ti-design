@@ -5,12 +5,25 @@ import io
 import pandas as pd
 from fastapi import UploadFile, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import DataError
 
 # 根据你的项目结构，请确保路径正确
 from db.db_models.dataset_table import Dataset
 
 # 建议使用相对路径，避免 D:\ 这种绝对路径
 BASE_DATASET_DIR = "data/datasets"
+
+
+def _save_to_local_dataset_file(file_name: str, file_bytes: bytes, source_type: str) -> str:
+    """将 CSV 落盘并返回 file_path（用于大文件或系统数据集存储）。"""
+    os.makedirs(os.path.join(BASE_DATASET_DIR, source_type), exist_ok=True)
+    dataset_id = str(uuid.uuid4())[:8]
+    dataset_dir = os.path.join(BASE_DATASET_DIR, source_type, dataset_id)
+    os.makedirs(dataset_dir, exist_ok=True)
+    file_path = os.path.join(dataset_dir, file_name)
+    with open(file_path, "wb") as f:
+        f.write(file_bytes)
+    return file_path
 
 def save_uploaded_dataset(
     db: Session,
@@ -43,13 +56,7 @@ def save_uploaded_dataset(
         db_content = file_bytes
     else:
         # 系统数据：存本地文件
-        os.makedirs(os.path.join(BASE_DATASET_DIR, "system"), exist_ok=True)
-        dataset_id = str(uuid.uuid4())[:8]
-        dataset_dir = os.path.join(BASE_DATASET_DIR, "system", dataset_id)
-        os.makedirs(dataset_dir, exist_ok=True)
-        file_path = os.path.join(dataset_dir, file.filename)
-        with open(file_path, "wb") as f:
-            f.write(file_bytes)
+        file_path = _save_to_local_dataset_file(file.filename, file_bytes, "system")
 
     # 3. 统计元数据
     n_rows = len(df)
@@ -78,7 +85,19 @@ def save_uploaded_dataset(
     )
 
     db.add(dataset)
-    db.commit()
+    try:
+        db.commit()
+    except DataError as e:
+        db.rollback()
+        # MySQL 旧 schema 下 content 常为 BLOB（64KB），较大 CSV 会触发 1406。
+        # 这里自动降级为文件落盘，避免前端上传失败。
+        if source_type == "user" and "Data too long for column 'content'" in str(e):
+            dataset.content = None
+            dataset.file_path = _save_to_local_dataset_file(file.filename, file_bytes, "user")
+            db.add(dataset)
+            db.commit()
+        else:
+            raise
     db.refresh(dataset)
     return dataset
 

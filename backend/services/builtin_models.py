@@ -62,6 +62,7 @@ def _upsert_builtin(
 
 def init_builtin_models() -> None:
     bert_manifest = _BACKEND_ROOT / "models" / "weights" / "bert_xgb_v2" / "manifest.json"
+    bert_v3_manifest = _BACKEND_ROOT / "models" / "weights" / "bert_v3" / "manifest.json"
     ms_manifest = _BACKEND_ROOT / "models" / "weights" / "matscibert_xgb" / "manifest.json"
 
     if not bert_manifest.is_file():
@@ -86,6 +87,21 @@ def init_builtin_models() -> None:
                     "权重见 models/weights/bert_xgb_v2/。"
                 ),
             )
+
+        if bert_v3_manifest.is_file():
+            _upsert_builtin(
+                db,
+                user,
+                model_name="BERT-v3",
+                manifest_path=bert_v3_manifest,
+                model_file_path="models/weights/bert_v3",
+                description=(
+                    "内置：Bert-v3 训练产物（XGBoost + RandomForest 融合推理），"
+                    "权重见 models/weights/bert_v3/。"
+                ),
+            )
+        else:
+            print("ℹ 未检测到 bert_v3/manifest.json，跳过 BERT-v3 登记。")
 
         if ms_manifest.is_file():
             _upsert_builtin(

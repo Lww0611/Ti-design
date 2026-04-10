@@ -40,7 +40,7 @@ def predict_with_registry(payload: dict):
 
         # 3️⃣ 构造特征
         features = build_features(payload)
-        selected_models = payload.get("selectedModels", ["BERT-XGB-v2"])
+        selected_models = payload.get("selectedModels", ["MiniLM-XGBoost-Dual-v2"])
 
         results = []
 

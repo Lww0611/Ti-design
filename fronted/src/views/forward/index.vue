@@ -83,11 +83,14 @@
 
                       <div class="model-select-container">
                         <el-checkbox-group v-model="form.selectedModels" class="vertical-checkbox-group">
-                          <el-checkbox label="BERT-XGB-v2" border size="default" class="model-checkbox-block">
-                            BERT
+                          <el-checkbox label="MiniLM-XGBoost-Dual-v2" border size="default" class="model-checkbox-block">
+                            MiniLM-XGBoost-Dual-v2
                           </el-checkbox>
-                          <el-checkbox label="MatSciBERT-XGB" border size="default" class="model-checkbox-block">
-                            MatSciBERT
+                          <el-checkbox label="BERT-Tabular-v3" border size="default" class="model-checkbox-block">
+                            BERT-Tabular-v3
+                          </el-checkbox>
+                          <el-checkbox label="MatSciBERT-XGBoost-Dual-v1" border size="default" class="model-checkbox-block">
+                            MatSciBERT-XGBoost-Dual-v1
                           </el-checkbox>
                         </el-checkbox-group>
                       </div>
@@ -210,7 +213,7 @@ const form = reactive({
   heatTreatmentMode: 'text',
   heatTreatment: { enabled: false, stages: [] },
   heatTreatmentText: '',
-  selectedModels: ['BERT-XGB-v2']
+  selectedModels: ['MiniLM-XGBoost-Dual-v2']
 })
 
 const predictionResults = ref([])

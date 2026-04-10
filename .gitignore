@@ -51,6 +51,9 @@ __pycache__/
 # HuggingFace cache (training script uses project-local HF_HOME)
 backend/.hf_hub_cache/
 
+# Legacy BERT TF checkpoint（体积约 1GB，勿提交）
+backend/bert/model.ckpt-*
+
 # MatSciBERT / HF encoder 权重体积大（>100MB），勿提交；克隆后请运行 train_matscibert_xgb.py 或拷贝本地 encoder/
 backend/models/weights/matscibert_xgb/encoder/*.safetensors
 backend/models/weights/matscibert_xgb/encoder/pytorch_model.bin
