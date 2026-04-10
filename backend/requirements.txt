@@ -2,7 +2,8 @@
 # Ti-design backend — Python 依赖
 # 安装：在 backend 目录下  python -m pip install -r requirements.txt
 # PyTorch：默认从 PyPI 装 CPU 版；若需 CUDA，请按 https://pytorch.org 单独安装对应 torch 后再装其余包。
-# Render：请使用 Python 3.10/3.11（本仓库用 runtime.txt 固定 3.11）。若用 3.12+，PyPI 上可能没有 torch==2.5.1 的 wheel，构建会失败。
+# Render：在 Dashboard 设 Root Directory=backend 时用 backend/runtime.txt；若 Root 为仓库根目录，用仓库根目录的 runtime.txt。务必为 Python 3.11，或在环境变量设 PYTHON_VERSION=3.11.9。
+# torch：3.11 及以下锁 2.5.1（与训练机一致）；3.12+ 无 2.5.1 wheel 时改用 2.9.x。
 # -----------------------------------------------------------------------------
 
 # HTTP API
@@ -31,9 +32,10 @@ passlib[bcrypt]>=1.7.4
 
 # -----------------------------------------------------------------------------
 # BERT-XGB / MatSciBERT — pickle 与 encoder 类路径依赖 transformers/torch 版本
-# 训练机已确认时可保持：torch==2.5.1, transformers==4.45.2
+# 训练机已确认时可保持：torch==2.5.1, transformers==4.45.2（仅 Python<3.12）
 # sentence-transformers：原 5.2.0 在 PyPI 无对应发布，改为当前可用 5.1.x
 # -----------------------------------------------------------------------------
-torch==2.5.1
+torch==2.5.1; python_version < "3.12"
+torch>=2.9.0,<2.12; python_version >= "3.12"
 transformers==4.45.2
 sentence-transformers>=5.1.0,<5.2.0
