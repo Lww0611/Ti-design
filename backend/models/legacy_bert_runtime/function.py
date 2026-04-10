@@ -1,9 +1,9 @@
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import tokenization
 import re
 import modeling
 
-# tf = tf.compat.v1
+tf.disable_v2_behavior()
 
 
 class InputExample(object):

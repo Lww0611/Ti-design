@@ -42,3 +42,12 @@ torch==2.5.1; python_version < "3.12"
 torch>=2.9.0,<2.12; python_version >= "3.12"
 transformers==4.45.2
 sentence-transformers>=5.1.0,<5.2.0
+
+# -----------------------------------------------------------------------------
+# Legacy BERT-v3 embedding runtime
+# 说明：
+# - 若部署环境需要在线使用 BERT-v3（先 embedding 再回归），需要可 import tensorflow。
+# - Linux 服务器使用 tensorflow 2.13.x（含 tf.estimator，兼容 legacy 脚本）。
+# - Apple Silicon 本地可按需安装 tensorflow-macos；生产 Linux 无需该包。
+# -----------------------------------------------------------------------------
+tensorflow>=2.13,<2.14; platform_system != "Darwin"

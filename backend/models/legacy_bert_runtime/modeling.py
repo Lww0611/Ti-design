@@ -25,7 +25,8 @@ import math
 import re
 import numpy as np
 import six
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
 
 # tf = tf.compat.v1
 

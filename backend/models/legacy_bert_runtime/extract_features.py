@@ -1,4 +1,4 @@
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import modeling
 import tokenization
 import function
@@ -6,7 +6,7 @@ import codecs
 import collections
 import json
 
-# tf = tf.compat.v1
+tf.disable_v2_behavior()
 flags = tf.flags
 FLAGS = tf.flags.FLAGS
 

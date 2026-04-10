@@ -85,13 +85,13 @@ def _handler_pickle_tabular_regressor(model_rec: Model, df: pd.DataFrame) -> dic
     if not model_rec.content:
         raise ValueError("pickle 评估需要 model.content 非空")
     model_obj = joblib.load(io.BytesIO(model_rec.content))
-    r2 = evaluate_model_on_data(
+    metrics = evaluate_model_on_data(
         model_obj=model_obj,
         df=df,
         features=model_rec.features,
         target_col=model_rec.target,
     )
-    return {"r2_score": r2}
+    return metrics
 
 
 def _handler_pipeline_bert_xgb_v2(model_rec: Model, df: pd.DataFrame) -> dict:
