@@ -14,6 +14,12 @@ DATABASE_URL = os.getenv(
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
+# Render 默认 DATABASE_URL 为 postgresql://...，SQLAlchemy 会走 psycopg2；本项目依赖的是 psycopg3（psycopg[binary]）
+if "://" in DATABASE_URL:
+    scheme, rest = DATABASE_URL.split("://", 1)
+    if scheme == "postgresql":
+        DATABASE_URL = f"postgresql+psycopg://{rest}"
+
 # SQL 日志默认关闭，调试时可设 DB_ECHO=true
 DB_ECHO = os.getenv("DB_ECHO", "false").lower() in {"1", "true", "yes", "on"}
 
