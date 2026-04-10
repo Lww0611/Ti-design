@@ -12,9 +12,10 @@ python-multipart>=0.0.9
 # Schemas（FastAPI 会拉 pydantic；此处显式约束主版本）
 pydantic>=2.4.0,<3
 
-# Database — db/session.py：mysql+pymysql
+# Database — 支持 MySQL 与 PostgreSQL（Render）
 sqlalchemy>=2.0.0,<3
 pymysql>=1.1.0,<2
+psycopg[binary]>=3.2.0,<4
 
 # Data & tabular / 经典 ML
 numpy>=1.24.0,<3

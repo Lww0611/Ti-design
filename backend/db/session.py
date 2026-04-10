@@ -10,6 +10,10 @@ DATABASE_URL = os.getenv(
     "mysql+pymysql://root:root@127.0.0.1:3306/ti_alloy_ai",
 )
 
+# Render 有时会给出 postgres://，SQLAlchemy 2 期望 postgresql://
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
 # SQL 日志默认关闭，调试时可设 DB_ECHO=true
 DB_ECHO = os.getenv("DB_ECHO", "false").lower() in {"1", "true", "yes", "on"}
 
