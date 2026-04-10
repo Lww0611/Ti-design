@@ -29,6 +29,9 @@ xgboost>=2.0.0,<3
 
 # Auth — passlib CryptContext(schemes=["bcrypt"])
 passlib[bcrypt]>=1.7.4
+# 与 passlib 1.7.x 兼容性更稳，避免 bcrypt 5.x 在后端自检时报
+# "password cannot be longer than 72 bytes"
+bcrypt==4.0.1
 
 # -----------------------------------------------------------------------------
 # BERT-XGB / MatSciBERT — pickle 与 encoder 类路径依赖 transformers/torch 版本
