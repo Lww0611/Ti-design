@@ -191,12 +191,13 @@ import { useRouter, useRoute } from 'vue-router'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { ArrowRight, Lock, VideoPlay, SuccessFilled, Position, MagicStick, CircleCheckFilled } from '@element-plus/icons-vue'
+import { API_V1_URL } from '@/config/api'
 
 const router = useRouter()
 const route = useRoute()
 
-const API_BASE_DATASETS = 'http://127.0.0.1:8000/api/v1/datasets'
-const API_BASE_MODELS = 'http://127.0.0.1:8000/api/v1/models'
+const API_BASE_DATASETS = `${API_V1_URL}/datasets`
+const API_BASE_MODELS = `${API_V1_URL}/models`
 
 const workflowStarted = ref(false)
 const currentStepIndex = ref(0)

@@ -132,12 +132,13 @@ import {useRouter, useRoute} from 'vue-router' // 必须引入
 import axios from 'axios'
 import {ElMessage, ElMessageBox} from 'element-plus'
 import {ArrowLeft} from '@element-plus/icons-vue'
+import { API_ROOT } from '@/config/api'
 
 const router = useRouter()
 const route = useRoute()
 
 /* ================= 配置 ================= */
-const API_BASE = 'http://127.0.0.1:8000/api'
+const API_BASE = API_ROOT
 
 /* ================= 状态 ================= */
 const loading = ref(false)

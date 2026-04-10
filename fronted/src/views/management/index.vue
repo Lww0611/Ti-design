@@ -155,6 +155,7 @@ import { useRouter, useRoute } from 'vue-router'
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Download, Warning, Upload, CirclePlus, ArrowLeft } from '@element-plus/icons-vue'
+import { API_V1_URL } from '@/config/api'
 
 const router = useRouter()
 const route = useRoute()
@@ -174,7 +175,7 @@ const availableColumns = ref([])
 const loading = ref(false)
 const submitLoading = ref(false)
 
-const API_BASE = 'http://127.0.0.1:8000/api/v1/models'
+const API_BASE = `${API_V1_URL}/models`
 const config = {
   headers: { 'token': localStorage.getItem('token') }
 }

@@ -129,8 +129,9 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
+import { API_ROOT } from '@/config/api'
 
-const API_BASE = 'http://127.0.0.1:8000/api'
+const API_BASE = API_ROOT
 
 const tasks = ref([])
 const totalTasks = ref(0)

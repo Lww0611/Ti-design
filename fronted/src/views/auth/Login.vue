@@ -78,6 +78,7 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
+import { API_ORIGIN } from '@/config/api'
 
 const router = useRouter()
 const activeTab = ref('login')
@@ -87,7 +88,7 @@ const rememberMe = ref(true)
    ✅ 创建 axios 实例
 ========================= */
 const request = axios.create({
-  baseURL: 'http://127.0.0.1:8000',
+  baseURL: API_ORIGIN,
   timeout: 10000
 })
 
