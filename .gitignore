@@ -54,10 +54,7 @@ backend/.hf_hub_cache/
 # Legacy BERT TF checkpoint（体积约 1GB，勿提交）
 backend/bert/model.ckpt-*
 
-# MatSciBERT / HF encoder 权重体积大（>100MB），勿提交；克隆后请运行 train_matscibert_xgb.py 或拷贝本地 encoder/
-backend/models/weights/matscibert_xgb/encoder/*.safetensors
-backend/models/weights/matscibert_xgb/encoder/pytorch_model.bin
-backend/models/weights/matscibert_xgb/encoder/model*.bin
+# MatSciBERT / HF encoder 权重：使用 Git LFS 管理（不再用 gitignore 忽略）
 
 # Local Python / Node (do not commit)
 backend/venv/
