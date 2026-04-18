@@ -12,7 +12,8 @@ numpy==1.26.4
 pandas==2.2.2
 scikit-learn==1.6.1
 joblib==1.3.2
-xgboost==2.0.3
+# sklearn 1.6+ 需 xgboost>=2.1.4，否则 predict 时 check_is_fitted 报 __sklearn_tags__
+xgboost>=2.1.4,<3
 
 passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
