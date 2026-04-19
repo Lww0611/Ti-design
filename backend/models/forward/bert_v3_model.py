@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import json
+import os
 from pathlib import Path
+import subprocess
+import sys
+import tempfile
 from typing import Any
 
 import joblib
@@ -54,6 +59,26 @@ class BertV3Model(BaseModel):
             rf_cols = getattr(self.rf_model, "feature_names_in_", None) if self.rf_model is not None else None
         self.rf_feature_columns = list(rf_cols) if rf_cols is not None and len(rf_cols) > 0 else self.feature_columns
 
+        self.bert_assets_dir = (
+            Path(__file__).resolve().parent.parent / "weights" / "bert_v3" / "legacy_encoder_assets"
+        )
+        self.bert_runtime_dir = Path(__file__).resolve().parents[1] / "legacy_bert_runtime"
+        self.legacy_bert_dir = Path(__file__).resolve().parents[2] / "bert"
+        self.extract_script = self._resolve_extract_script()
+        self.vocab_path = self.bert_assets_dir / "vocab.txt"
+        self.bert_config_path = self.bert_assets_dir / "bert_config.json"
+        self.ckpt_path = self.bert_assets_dir / "model.ckpt-1800000"
+        self.tf_python = self._resolve_tf_python()
+        self._embedding_cache: dict[str, np.ndarray] = {}
+
+        self.xgb_uses_embedding = self._looks_like_embedding_space(self.feature_columns)
+        self.rf_uses_embedding = self._looks_like_embedding_space(self.rf_feature_columns)
+        if (self.xgb_uses_embedding or self.rf_uses_embedding) and self.tf_python is None:
+            raise RuntimeError(
+                "BERT-v3 当前权重依赖 embedding 特征，但未找到可用 TensorFlow 解释器。"
+                "请安装 TensorFlow，或设置环境变量 BERT_V3_TF_PYTHON 指向可运行的 python。"
+            )
+
     @staticmethod
     def _find_predictor_in_dict(bundle: dict) -> Any | None:
         preferred_keys = (
@@ -76,6 +101,17 @@ class BertV3Model(BaseModel):
 
         return None
 
+    @staticmethod
+    def _looks_like_embedding_space(columns: list[Any] | None) -> bool:
+        if not columns:
+            return False
+        numeric_like = 0
+        for c in columns:
+            s = str(c)
+            if s.isdigit():
+                numeric_like += 1
+        return numeric_like >= max(50, int(len(columns) * 0.8))
+
     def _resolve_predictor(self, loaded: Any, filename: str) -> Any:
         if callable(getattr(loaded, "predict", None)):
             return loaded
@@ -89,6 +125,47 @@ class BertV3Model(BaseModel):
             f"BERT-v3 文件 {filename} 未找到可调用 predict() 的模型对象，"
             f"实际类型: {type(loaded).__name__}"
         )
+
+    def _resolve_tf_python(self) -> str | None:
+        candidates = []
+        if sys.executable:
+            candidates.append(sys.executable)
+        env_py = os.getenv("BERT_V3_TF_PYTHON")
+        if env_py:
+            candidates.append(env_py)
+        backend_tfenv_py = str(Path(__file__).resolve().parents[2] / ".tfenv" / "bin" / "python")
+        candidates.append(backend_tfenv_py)
+        venv_py = str(Path(__file__).resolve().parents[3] / "venv" / "bin" / "python")
+        candidates.append(venv_py)
+        candidates.append("/opt/homebrew/bin/python3.11")
+        candidates.append("python")
+        candidates.append("python3")
+
+        for py in candidates:
+            try:
+                r = subprocess.run(
+                    [py, "-c", "import tensorflow as tf; print(tf.__version__)"],
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                    check=False,
+                )
+                if r.returncode == 0:
+                    return py
+            except Exception:
+                continue
+        return None
+
+    def _resolve_extract_script(self) -> Path:
+        candidates = [
+            self.bert_runtime_dir / "extract_features.py",
+            self.legacy_bert_dir / "extract_features.py",
+        ]
+        for p in candidates:
+            if p.is_file():
+                return p
+        # keep first candidate in error message path
+        return candidates[0]
 
     def _patch_legacy_imputer_attrs(self, model_obj: Any) -> None:
         """
@@ -172,8 +249,113 @@ class BertV3Model(BaseModel):
         row = {col: self._feature_value(col, features) for col in columns}
         return pd.DataFrame([row], columns=columns)
 
+    @staticmethod
+    def _format_num(v: Any) -> float:
+        try:
+            return float(v)
+        except Exception:
+            return 0.0
+
+    def _build_legacy_bert_text(self, features: dict) -> str:
+        # Keep consistent with legacy training script template.
+        order = ["Ti", "Fe", "Zr", "Nb", "Sn", "Ta", "Mo", "Al", "V", "Cr", "Hf", "Mn", "W", "Si", "Cu"]
+        parts = []
+        for ele in order:
+            v = self._format_num(features.get(f"{ele} (wt%)", 0.0))
+            if v > 0:
+                parts.append(f"{ele} {v}%")
+        composition_str = ", ".join(parts)
+        condition = str(features.get("Process") or "as-received")
+        return f"Titanium alloy composition: {composition_str}. Condition: {condition}"
+
+    def _extract_embedding_vector(self, text: str) -> np.ndarray:
+        if text in self._embedding_cache:
+            return self._embedding_cache[text]
+
+        if self.tf_python is None:
+            raise RuntimeError(
+                "BERT-v3 需要 TensorFlow 才能生成 embedding。"
+                "请在后端环境安装 tensorflow 后重试。"
+            )
+
+        required_paths = [
+            self.extract_script,
+            self.vocab_path,
+            self.bert_config_path,
+            Path(f"{self.ckpt_path}.index"),
+        ]
+        for p in required_paths:
+            if not Path(p).exists():
+                raise FileNotFoundError(f"BERT-v3 embedding 文件缺失: {p}")
+
+        with tempfile.TemporaryDirectory(prefix="bert_v3_") as td:
+            td_path = Path(td)
+            input_txt = td_path / "input.txt"
+            out_emb = td_path / "embedding.json"
+            out_attn = td_path / "attention.json"
+            input_txt.write_text(text + "\n", encoding="utf-8")
+
+            cmd = [
+                self.tf_python,
+                str(self.extract_script),
+                "--target=embedding",
+                "--layers=11",
+                f"--bert_config_file={self.bert_config_path}",
+                f"--vocab_file={self.vocab_path}",
+                "--do_lower_case=True",
+                f"--input_file={input_txt}",
+                f"--output_file_embedding={out_emb}",
+                f"--output_file_attention={out_attn}",
+                "--max_seq_length=128",
+                "--batch_size=1",
+                f"--init_checkpoint={self.ckpt_path}",
+                "--use_one_hot_embeddings=False",
+            ]
+            run = subprocess.run(cmd, capture_output=True, text=True, check=False)
+            if run.returncode != 0:
+                raise RuntimeError(
+                    f"BERT-v3 embedding 提取失败 (exit={run.returncode}): "
+                    f"{(run.stderr or run.stdout)[-500:]}"
+                )
+
+            lines = out_emb.read_text(encoding="utf-8").splitlines()
+            if not lines:
+                raise RuntimeError("BERT-v3 embedding 输出为空")
+            payload = json.loads(lines[0])
+            feat_list = payload.get("features", [])
+            if not feat_list:
+                raise RuntimeError("BERT-v3 embedding 输出无 features")
+
+            cls_feat = feat_list[0]
+            if cls_feat.get("token") != "[CLS]":
+                cls_feat = next((f for f in feat_list if f.get("token") == "[CLS]"), feat_list[0])
+            layers = cls_feat.get("layers", [])
+            if not layers:
+                raise RuntimeError("BERT-v3 embedding 输出缺少 layers")
+            values = np.asarray(layers[0].get("values", []), dtype=np.float32)
+            if values.size != 768:
+                raise RuntimeError(f"BERT-v3 embedding 维度异常: {values.size}")
+
+        self._embedding_cache[text] = values
+        return values
+
+    def _build_embedding_frame(self, features: dict, columns: list[Any] | None) -> pd.DataFrame:
+        emb = self._extract_embedding_vector(self._build_legacy_bert_text(features))
+        if not columns:
+            columns = [str(i) for i in range(int(emb.shape[0]))]
+        row = {}
+        for c in columns:
+            idx = int(str(c))
+            row[c] = float(emb[idx]) if 0 <= idx < emb.shape[0] else 0.0
+        return pd.DataFrame([row], columns=columns)
+
     def predict(self, features: dict) -> dict:
-        X = self._build_input_frame(features, self.feature_columns)
+        use_xgb_embedding = self.xgb_uses_embedding
+        X = (
+            self._build_embedding_frame(features, self.feature_columns)
+            if use_xgb_embedding
+            else self._build_input_frame(features, self.feature_columns)
+        )
         self._patch_legacy_imputer_attrs(self.xgb_model)
         if self.rf_model is not None:
             self._patch_legacy_imputer_attrs(self.rf_model)
@@ -185,7 +367,12 @@ class BertV3Model(BaseModel):
         # According to training artifact assignment: XGBoost -> strength, RF -> elongation.
         if self.rf_model is not None:
             try:
-                X_rf = self._build_input_frame(features, self.rf_feature_columns)
+                use_rf_embedding = self.rf_uses_embedding
+                X_rf = (
+                    self._build_embedding_frame(features, self.rf_feature_columns)
+                    if use_rf_embedding
+                    else self._build_input_frame(features, self.rf_feature_columns)
+                )
                 rf_out_1, rf_out_2 = self._decode_prediction(self.rf_model.predict(X_rf))
                 elongation = rf_out_2 if rf_out_2 is not None else rf_out_1
             except Exception:

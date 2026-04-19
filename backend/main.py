@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -13,10 +15,22 @@ from db.db_models.case_table import Case
 
 app = FastAPI(title="Titanium Alloy Research API")
 
-# 允许跨域
+# 允许跨域（Render + Vercel 建议用 CORS_ORIGINS 精确配置）
+# 例如：
+# CORS_ORIGINS=https://your-app.vercel.app,https://www.your-domain.com
+raw_cors = os.getenv("CORS_ORIGINS", "*").strip()
+allow_origins = ["*"] if raw_cors == "*" else [
+    origin.strip() for origin in raw_cors.split(",") if origin.strip()
+]
+# 允许 Vercel 预览域名（每次部署子域会变化），可按需覆盖为更严格正则
+# 例如：^https://ti-design(-[a-z0-9-]+)?\\.vercel\\.app$
+raw_cors_regex = os.getenv("CORS_ORIGIN_REGEX", r"^https://.*\.vercel\.app$")
+allow_origin_regex = None if raw_cors == "*" else (raw_cors_regex or None)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allow_origins,
+    allow_origin_regex=allow_origin_regex,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -38,4 +52,7 @@ def on_startup():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    host = os.getenv("HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", "8000"))
+    reload_enabled = os.getenv("RELOAD", "false").lower() in {"1", "true", "yes", "on"}
+    uvicorn.run("main:app", host=host, port=port, reload=reload_enabled)

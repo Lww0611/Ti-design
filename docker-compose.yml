@@ -1,0 +1,29 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ti-design-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # --- 必填：云数据库连接串（你来替换）---
+      # MySQL 示例:
+      # DATABASE_URL: mysql+pymysql://USER:PASSWORD@HOST:3306/DB_NAME
+      # PostgreSQL 示例:
+      # DATABASE_URL: postgresql+psycopg://USER:PASSWORD@HOST:5432/DB_NAME
+      DATABASE_URL: "postgresql+psycopg2://ti_user:xMUASFDLVPmNzRJGpx4hs44tIFkMLwAS@dpg-d7c7567lk1mc7391l4n0-a.singapore-postgres.render.com/ti_db"
+
+      # --- 按需配置 ---
+      CORS_ORIGINS: "https://ti-design.vercel.app"
+      DB_ECHO: "false"
+      HOST: "0.0.0.0"
+      PORT: "8000"
+      RELOAD: "false"
+
+      # BERT-v3 embedding 运行时 Python（容器内默认可用）
+      BERT_V3_TF_PYTHON: "/usr/local/bin/python"
+
