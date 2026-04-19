@@ -19,4 +19,10 @@ passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
 python-jose==3.3.0
 
+# 三条模型管线共用 torch；版本与仓库内权重说明一致
 torch==2.5.1
+# MatSciBERT-XGB（AutoModel/AutoTokenizer）+ BERT-XGB-v2 的 encoder 元数据
+transformers==4.45.2
+sentence-transformers==5.3.0
+# BERT-v3：legacy extract_features.py（tf.compat.v1），配合 BERT_V3_TF_PYTHON 使用同一环境
+tensorflow==2.16.2
