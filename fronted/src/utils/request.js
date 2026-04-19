@@ -4,7 +4,7 @@ import { API_V1_URL } from '@/config/api'
 
 const service = axios.create({
     baseURL: API_V1_URL,
-    timeout: 40000 // 预测/逆向模型在线推理较慢，适当放宽超时
+    timeout: 60000 // 预测/逆向模型在线推理较慢，适当放宽超时
 })
 
 // 响应拦截器：统一处理错误提示
